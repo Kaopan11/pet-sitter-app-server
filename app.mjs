@@ -1,9 +1,23 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import usersRouter from "./routes/users.route.mjs";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://pet-sitter-app-client-khaki.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 
