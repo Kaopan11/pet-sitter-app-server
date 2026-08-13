@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import authRouter from "./routes/auth.route.mjs";
 import usersRouter from "./routes/users.route.mjs";
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(
 
 app.use(express.json());
 
+app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
 
 app.get("/", (req, res) => {
