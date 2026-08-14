@@ -1,6 +1,7 @@
 import supabase from "../repositories/supabase.mjs";
 import { usersRepository } from "../repositories/users.repository.mjs";
 
+// ใช้กับ endpoint ที่ต้อง login แล้ว อ่าน Authorization: Bearer <token>
 export const requireAuth = async (req, res, next) => {
   try {
     const header = req.headers.authorization;
@@ -18,8 +19,8 @@ export const requireAuth = async (req, res, next) => {
 
     const profile = await usersRepository.findById(data.user.id);
 
-    req.authUser = data.user;
-    req.user = profile;
+    req.authUser = data.user; // ข้อมูลจาก Supabase Auth
+    req.user = profile; // โปรไฟล์จาก public.users
     next();
   } catch (error) {
     next(error);

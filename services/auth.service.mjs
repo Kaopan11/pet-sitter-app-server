@@ -1,22 +1,22 @@
 import supabase from "../repositories/supabase.mjs";
 import { usersRepository } from "../repositories/users.repository.mjs";
+import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 
-const ROLE_MAP = {
-  owner: "pet_owner",
-  sitter: "pet_sitter",
-  pet_owner: "pet_owner",
-  pet_sitter: "pet_sitter",
-};
-
-function toAuthUser(profile) {
+// รูป user ที่ส่งกลับ Frontend — ไม่มีรหัสผ่าน และไม่มี column role
+function toAuthUser(profile, isSitter) {
   return {
     id: profile.id,
     email: profile.email,
     phone: profile.phone,
-    role: profile.role,
     name: profile.name ?? null,
+    isSitter,
   };
+}
+
+// ฟอร์มสมัครไม่มีชื่อร้าน เลยใช้ส่วนหน้าอีเมลเป็น display_name ชั่วคราว
+function displayNameFromEmail(email) {
+  return email.split("@")[0];
 }
 
 function isDuplicateEmailError(error) {
@@ -33,21 +33,20 @@ function isDuplicateEmailError(error) {
 }
 
 export const authService = {
-  async register({ email, phone, password, role, name }) {
-    const mappedRole = ROLE_MAP[role];
+  async register({ email, phone, password, asSitter }) {
     const normalizedEmail = email.trim().toLowerCase();
-    const normalizedName = String(name).trim();
 
     const existing = await usersRepository.findByEmail(normalizedEmail);
     if (existing) {
       throw httpError(409, "Email already exists");
     }
 
+    // 1) สร้างบัญชีใน Supabase Auth (เก็บรหัสที่นี่)
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: normalizedEmail,
       password,
       email_confirm: true,
-      user_metadata: { role: mappedRole, phone, name: normalizedName },
+      user_metadata: { phone, asSitter },
     });
 
     if (authError) {
@@ -58,14 +57,23 @@ export const authService = {
     }
 
     try {
+      // 2) สร้างโปรไฟล์ใน public.users — id ต้องตรงกับ auth.users.id
       const profile = await usersRepository.create({
         id: authData.user.id,
         email: normalizedEmail,
         phone,
-        role: mappedRole,
-        name: normalizedName,
+        name: null,
       });
 
+      // 3) ถ้าสมัครแบบ Sitter ค่อยสร้างแถวใน sitter_profiles
+      if (asSitter) {
+        await sitterProfilesRepository.create({
+          userId: profile.id,
+          displayName: displayNameFromEmail(normalizedEmail),
+        });
+      }
+
+      // 4) ล็อกอินทันทีเพื่อได้ token ส่งกลับ Frontend
       const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
@@ -77,9 +85,10 @@ export const authService = {
 
       return {
         token: sessionData.session.access_token,
-        user: toAuthUser(profile),
+        user: toAuthUser(profile, Boolean(asSitter)),
       };
     } catch (error) {
+      // insert users/sitter พัง → ลบ auth user ทิ้ง ไม่ให้ค้างกำพร้า
       await supabase.auth.admin.deleteUser(authData.user.id);
       if (error.statusCode) throw error;
       if (isDuplicateEmailError(error)) {
@@ -107,9 +116,12 @@ export const authService = {
       throw httpError(401, "Invalid email or password");
     }
 
+    // มีแถวใน sitter_profiles = เป็น sitter
+    const sitterProfile = await sitterProfilesRepository.findByUserId(profile.id);
+
     return {
       token: data.session.access_token,
-      user: toAuthUser(profile),
+      user: toAuthUser(profile, Boolean(sitterProfile)),
     };
   },
 };

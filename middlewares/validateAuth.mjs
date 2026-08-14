@@ -1,8 +1,9 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_ROLES = ["owner", "sitter", "pet_owner", "pet_sitter"];
+const PHONE_PATTERN = /^\d{10}$/;
 
+// ตรวจ body ตอนสมัคร ถ้าไม่ผ่านจะหยุดที่นี่ ไม่เข้า controller
 export const validateRegister = (req, res, next) => {
-  const { email, phone, password, role, name } = req.body ?? {};
+  const { email, phone, password, asSitter } = req.body ?? {};
 
   if (!email) {
     return res.status(400).json({ message: "Email is required" });
@@ -12,12 +13,12 @@ export const validateRegister = (req, res, next) => {
     return res.status(400).json({ message: "Invalid email" });
   }
 
-  if (!name || !String(name).trim()) {
-    return res.status(400).json({ message: "Name is required" });
-  }
-
   if (!phone) {
     return res.status(400).json({ message: "Phone is required" });
+  }
+
+  if (!PHONE_PATTERN.test(String(phone))) {
+    return res.status(400).json({ message: "Phone must be 10 digits" });
   }
 
   if (!password) {
@@ -28,12 +29,9 @@ export const validateRegister = (req, res, next) => {
     return res.status(400).json({ message: "Password must be at least 6 characters" });
   }
 
-  if (!role) {
-    return res.status(400).json({ message: "Role is required" });
-  }
-
-  if (!ALLOWED_ROLES.includes(role)) {
-    return res.status(400).json({ message: "Invalid role" });
+  // asSitter ต้องเป็น true/false จริงๆ ไม่ใช่ string
+  if (typeof asSitter !== "boolean") {
+    return res.status(400).json({ message: "asSitter must be true or false" });
   }
 
   next();

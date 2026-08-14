@@ -1,7 +1,8 @@
 import supabase from "./supabase.mjs";
 
+// field ที่ส่งออก API ได้ — ไม่ดึงรหัสผ่าน
 const USER_PUBLIC_FIELDS =
-  "id, name, email, phone, id_number, date_of_birth, profile_image, role, created_at, updated_at";
+  "id, name, email, phone, id_number, date_of_birth, avatar_url, is_admin, is_verified, created_at, updated_at";
 
 export const usersRepository = {
   async findAll() {
@@ -35,19 +36,16 @@ export const usersRepository = {
     return data;
   },
 
-  async create({ id, email, phone, role, name }) {
+  // id ต้องเป็นค่าเดียวกับ auth.users.id
+  async create({ id, email, phone, name }) {
     const { data, error } = await supabase
       .from("users")
-      .upsert(
-        {
-          id,
-          email,
-          phone,
-          role,
-          name,
-        },
-        { onConflict: "id" }
-      )
+      .insert({
+        id,
+        email,
+        phone,
+        name: name ?? null,
+      })
       .select(USER_PUBLIC_FIELDS)
       .single();
 
