@@ -14,11 +14,6 @@ function toAuthUser(profile, isSitter) {
   };
 }
 
-// ฟอร์มสมัครไม่มีชื่อร้าน เลยใช้ส่วนหน้าอีเมลเป็น display_name ชั่วคราว
-function displayNameFromEmail(email) {
-  return email.split("@")[0];
-}
-
 function isDuplicateEmailError(error) {
   const message = String(error?.message ?? "").toLowerCase();
   const code = String(error?.code ?? "").toLowerCase();
@@ -33,8 +28,9 @@ function isDuplicateEmailError(error) {
 }
 
 export const authService = {
-  async register({ email, phone, password, asSitter }) {
+  async register({ name, email, phone, password, asSitter }) {
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedName = String(name).trim();
 
     const existing = await usersRepository.findByEmail(normalizedEmail);
     if (existing) {
@@ -46,7 +42,7 @@ export const authService = {
       email: normalizedEmail,
       password,
       email_confirm: true,
-      user_metadata: { phone, asSitter },
+      user_metadata: { name: normalizedName, phone, asSitter },
     });
 
     if (authError) {
@@ -62,14 +58,14 @@ export const authService = {
         id: authData.user.id,
         email: normalizedEmail,
         phone,
-        name: null,
+        name: normalizedName,
       });
 
-      // 3) ถ้าสมัครแบบ Sitter ค่อยสร้างแถวใน sitter_profiles
+      // 3) ถ้าสมัครแบบ Sitter ใช้ name เป็น display_name
       if (asSitter) {
         await sitterProfilesRepository.create({
           userId: profile.id,
-          displayName: displayNameFromEmail(normalizedEmail),
+          displayName: normalizedName,
         });
       }
 

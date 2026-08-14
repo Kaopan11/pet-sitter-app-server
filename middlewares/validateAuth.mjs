@@ -3,7 +3,11 @@ const PHONE_PATTERN = /^\d{10}$/;
 
 // ตรวจ body ตอนสมัคร ถ้าไม่ผ่านจะหยุดที่นี่ ไม่เข้า controller
 export const validateRegister = (req, res, next) => {
-  const { email, phone, password, asSitter } = req.body ?? {};
+  const { name, email, phone, password, asSitter } = req.body ?? {};
+
+  if (!name || !String(name).trim()) {
+    return res.status(400).json({ message: "Name is required" });
+  }
 
   if (!email) {
     return res.status(400).json({ message: "Email is required" });
