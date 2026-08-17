@@ -1,33 +1,27 @@
-import supabase from "./supabase.mjs";
+import { pool } from "./db.mjs";
 
 // เป็น sitter หรือไม่ ดูจากตารางนี้ ไม่มี column asSitter ใน users
 export const sitterProfilesRepository = {
   async findByUserId(userId) {
-    const { data, error } = await supabase
-      .from("sitter_profiles")
-      .select("user_id, display_name, approval_status")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) throw error;
-    return data;
+    const { rows } = await pool.query(
+      `SELECT user_id, display_name, approval_status
+       FROM public.sitter_profiles
+       WHERE user_id = $1
+       LIMIT 1`,
+      [userId]
+    );
+    return rows[0] ?? null;
   },
 
   async create({ userId, displayName }) {
-    const { data, error } = await supabase
-      .from("sitter_profiles")
-      .insert({
-        user_id: userId,
-        display_name: displayName,
-        experience_years: 0,
-        rating_avg: 0,
-        review_count: 0,
-        approval_status: "pending", // รอแอดมินอนุมัติ
-      })
-      .select("user_id, display_name, approval_status")
-      .single();
-
-    if (error) throw error;
-    return data;
+    const { rows } = await pool.query(
+      `INSERT INTO public.sitter_profiles (
+         user_id, display_name, experience_years, rating_avg, review_count, approval_status
+       )
+       VALUES ($1, $2, 0, 0, 0, 'pending')
+       RETURNING user_id, display_name, approval_status`,
+      [userId, displayName]
+    );
+    return rows[0];
   },
 };
