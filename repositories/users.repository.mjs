@@ -1,55 +1,48 @@
-import supabase from "./supabase.mjs";
+import { pool } from "./db.mjs";
 
-// field ที่ส่งออก API ได้ — ไม่ดึงรหัสผ่าน
-const USER_PUBLIC_FIELDS =
+const USER_COLUMNS =
   "id, name, email, phone, id_number, date_of_birth, avatar_url, is_admin, is_verified, created_at, updated_at";
 
 export const usersRepository = {
   async findAll() {
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_PUBLIC_FIELDS);
-
-    if (error) throw error;
-    return data;
+    const { rows } = await pool.query(`
+      SELECT ${USER_COLUMNS}
+      FROM public.users
+      ORDER BY created_at DESC
+    `);
+    return rows;
   },
 
   async findById(id) {
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_PUBLIC_FIELDS)
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) throw error;
-    return data;
+    const { rows } = await pool.query(
+      `SELECT ${USER_COLUMNS}
+       FROM public.users
+       WHERE id = $1
+       LIMIT 1`,
+      [id]
+    );
+    return rows[0] ?? null;
   },
 
   async findByEmail(email) {
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_PUBLIC_FIELDS)
-      .eq("email", email)
-      .maybeSingle();
-
-    if (error) throw error;
-    return data;
+    const { rows } = await pool.query(
+      `SELECT ${USER_COLUMNS}
+       FROM public.users
+       WHERE email = $1
+       LIMIT 1`,
+      [email]
+    );
+    return rows[0] ?? null;
   },
 
   // id ต้องเป็นค่าเดียวกับ auth.users.id
   async create({ id, email, phone, name }) {
-    const { data, error } = await supabase
-      .from("users")
-      .insert({
-        id,
-        email,
-        phone,
-        name: name ?? null,
-      })
-      .select(USER_PUBLIC_FIELDS)
-      .single();
-
-    if (error) throw error;
-    return data;
+    const { rows } = await pool.query(
+      `INSERT INTO public.users (id, email, phone, name)
+       VALUES ($1, $2, $3, $4)
+       RETURNING ${USER_COLUMNS}`,
+      [id, email, phone, name ?? null]
+    );
+    return rows[0];
   },
 };
