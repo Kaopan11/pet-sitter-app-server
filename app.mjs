@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import authRouter from "./routes/auth.route.mjs";
 import usersRouter from "./routes/users.route.mjs";
+import sittersRouter from "./routes/sitters.route.mjs";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -25,6 +26,7 @@ app.use(express.json()); // อ่าน JSON จาก request body
 
 app.use("/api/auth", authRouter); // register / login
 app.use("/api/users", usersRouter); // รายการ users
+app.use("/api/sitters", sittersRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "API is working" });
