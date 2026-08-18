@@ -1,22 +1,6 @@
 import { httpError } from "./httpError.mjs";
 
 const EXPERIENCE_VALUES = new Set(["0-2", "3-5", "5+"]);
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png"]);
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
-
-export function assertImageFile(file, label = "Image") {
-  if (!file) {
-    return;
-  }
-
-  if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
-    throw httpError(400, `${label} must be .jpg, .jpeg, or .png`);
-  }
-
-  if (file.size > MAX_IMAGE_SIZE) {
-    throw httpError(400, `${label} must be 2MB or smaller`);
-  }
-}
 
 export function validateSitterProfileBody(body) {
   const name = String(body.name ?? "").trim();

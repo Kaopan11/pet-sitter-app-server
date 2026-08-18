@@ -68,19 +68,17 @@ export const sitterProfileMeRepository = {
           (
             SELECT json_agg(
               json_build_object(
-                'pet_type_id', sitter_pet_types.pet_type_id,
-                'pet_types', json_build_object(
-                  'id', pet_types.id,
-                  'name', pet_types.name
-                )
+                'id', pet_types.id,
+                'name', pet_types.name
               )
+              ORDER BY pet_types.id
             )
             FROM sitter_pet_types
             JOIN pet_types ON pet_types.id = sitter_pet_types.pet_type_id
             WHERE sitter_pet_types.sitter_id = sitter_profiles.user_id
           ),
           '[]'::json
-        ) AS sitter_pet_types
+        ) AS pet_types
       FROM sitter_profiles
       JOIN users ON users.id = sitter_profiles.user_id
       WHERE sitter_profiles.user_id = $1
@@ -161,5 +159,46 @@ export const sitterProfileMeRepository = {
       VALUES ($1, $2, $3)
     `;
     await connectionPool.query(query, [userId, photoUrl, sortOrder]);
+  },
+
+  async findPhotoById(userId, photoId) {
+    const { rows } = await connectionPool.query(
+      "SELECT id, photo_url FROM sitter_photos WHERE id = $1 AND sitter_id = $2",
+      [photoId, userId]
+    );
+    return rows[0] ?? null;
+  },
+
+  async deletePhoto(userId, photoId) {
+    await connectionPool.query(
+      "DELETE FROM sitter_photos WHERE id = $1 AND sitter_id = $2",
+      [photoId, userId]
+    );
+  },
+
+  async replacePetTypes(userId, petTypeNames) {
+    const { rows } = await connectionPool.query(
+      "SELECT id FROM pet_types WHERE LOWER(name) = ANY($1::text[])",
+      [petTypeNames.map((name) => String(name).toLowerCase())]
+    );
+
+    if (rows.length === 0) {
+      return 0;
+    }
+
+    await connectionPool.query(
+      "DELETE FROM sitter_pet_types WHERE sitter_id = $1",
+      [userId]
+    );
+
+    for (const row of rows) {
+      await connectionPool.query(
+        `INSERT INTO sitter_pet_types (sitter_id, pet_type_id)
+         VALUES ($1, $2)`,
+        [userId, row.id]
+      );
+    }
+
+    return rows.length;
   },
 };

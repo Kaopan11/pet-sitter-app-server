@@ -42,5 +42,10 @@ sittersRouter.put(
   [uploadSitterImages, requireAuth],
   sittersController.updateMyProfile
 );
+sittersRouter.delete(
+  "/me/photos/:photoId",
+  requireAuth,
+  sittersController.deleteMyPhoto
+);
 
 export default sittersRouter;
