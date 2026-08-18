@@ -1,3 +1,4 @@
+import { sittersService } from "../services/sitters.service.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 
 export const sittersController = {
@@ -40,6 +41,37 @@ export const sittersController = {
       return res.status(500).json({
         message: "Server could not read pet sitters because database connection",
       });
+    }
+  },
+
+  async getMyProfile(req, res, next) {
+    try {
+      const profile = await sittersService.getProfileByUserId(req.user.id);
+      return res.status(200).json({ data: profile });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateMyProfile(req, res, next) {
+    try {
+      await sittersService.updateMyProfile(req.user.id, {
+        body: req.body,
+        avatarFile: req.files?.imageFile?.[0],
+        galleryFiles: req.files?.galleryFiles ?? [],
+      });
+      return res.status(200).json({ message: "Profile updated successfully" });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async deleteMyPhoto(req, res, next) {
+    try {
+      await sittersService.deleteMyPhoto(req.user.id, req.params.photoId);
+      return res.status(200).json({ message: "Photo deleted successfully" });
+    } catch (error) {
+      next(error);
     }
   },
 };
