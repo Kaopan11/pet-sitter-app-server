@@ -87,9 +87,10 @@ export const sitterProfileMeRepository = {
     return rows[0] ?? null;
   },
 
-  async updateUser(userId, { name, phone, avatarUrl, dateOfBirth }) {
+  async updateUser(userId, { name, email, phone, avatarUrl, dateOfBirth }) {
     const query = buildUpdateQuery("users", "id", userId, {
       name,
+      email,
       phone,
       avatar_url: avatarUrl,
       date_of_birth: dateOfBirth,
@@ -110,6 +111,17 @@ export const sitterProfileMeRepository = {
       LIMIT 1
     `;
     const { rows } = await connectionPool.query(query, [phone, excludeUserId]);
+    return rows.length > 0;
+  },
+
+  async isEmailTaken(email, excludeUserId) {
+    const query = `
+      SELECT id
+      FROM users
+      WHERE LOWER(email) = LOWER($1) AND id <> $2
+      LIMIT 1
+    `;
+    const { rows } = await connectionPool.query(query, [email, excludeUserId]);
     return rows.length > 0;
   },
 

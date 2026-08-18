@@ -56,18 +56,32 @@ export const sittersService = {
       throw httpError(400, "Phone number is already in use");
     }
 
-    let avatarUrl = null;
-
-    if (avatarFile) {
-      avatarUrl = await uploadImageFile(avatarFile, "avatar", userId);
+    const email = String(body.email).trim().toLowerCase();
+    if (await sitterProfileMeRepository.isEmailTaken(email, userId)) {
+      throw httpError(400, "Email is already in use");
     }
 
-    await sitterProfileMeRepository.updateUser(userId, {
+    const userUpdate = {
       name: body.name,
+      email,
       phone: body.phone,
-      avatarUrl,
       dateOfBirth: body.date_of_birth,
-    });
+    };
+
+    if (avatarFile) {
+      userUpdate.avatarUrl = await uploadImageFile(avatarFile, "avatar", userId);
+    }
+
+    await sitterProfileMeRepository.updateUser(userId, userUpdate);
+
+    if (email !== String(profile.email ?? "").toLowerCase()) {
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        email,
+      });
+      if (error) {
+        throw httpError(400, "Email is already in use");
+      }
+    }
 
     await sitterProfileMeRepository.updateProfile(userId, {
       display_name: body.display_name,

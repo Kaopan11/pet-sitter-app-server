@@ -1,6 +1,7 @@
 import { httpError } from "./httpError.mjs";
 
 const EXPERIENCE_VALUES = new Set(["0-2", "3-5", "5+"]);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.com$/i;
 
 export function validateSitterProfileBody(body) {
   const name = String(body.name ?? "").trim();
@@ -27,11 +28,12 @@ export function validateSitterProfileBody(body) {
     throw httpError(400, "Phone number must be 10 digits and start with 0");
   }
 
-  if (body.email) {
-    const email = String(body.email).trim();
-    if (!email.includes("@") || !email.toLowerCase().includes(".com")) {
-      throw httpError(400, "Email must contain @ and .com");
-    }
+  const email = String(body.email ?? "").trim();
+  if (!email) {
+    throw httpError(400, "Email is required");
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    throw httpError(400, "Email must include @ and end with .com");
   }
 
   const displayName = String(body.display_name ?? "").trim();
