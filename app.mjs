@@ -26,7 +26,7 @@ app.use(express.json()); // อ่าน JSON จาก request body
 
 app.use("/api/auth", authRouter); // register / login
 app.use("/api/users", usersRouter); // รายการ users
-app.use("/api/sitters", sittersRouter);
+app.use("/api/sitters", sittersRouter); // sitter list + profile
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "API is working" });
