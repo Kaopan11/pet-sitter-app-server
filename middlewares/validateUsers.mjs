@@ -1,12 +1,11 @@
 export const validateUpdateOwners = (req, res, next) => {
-    const { name, email, phone, id_number, date_of_birth, avatar_url } = req.body ?? {};
-    
-        
+    const { name, email, phone, id_number, date_of_birth } = req.body ?? {};
+
     if (!name?.trim()) {
         return res.status(400).json({ message: "Name is required" });
     } 
 
-    if (!email.trim()) {
+    if (!email?.trim()) {
       return res.status(400).json({ message: "Email is required" });
     } else if (!/^[^\s@]+@[^\s@]+\.com$/i.test(email.trim())) {
         return res.status(400).json({ message: "Invalid email address" });

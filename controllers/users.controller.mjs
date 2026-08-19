@@ -20,11 +20,11 @@ export const usersController = {
   },
   async updateMe(req, res, next) {
     try {
-      const userId = req.user.id;
-      const user = await usersService.updateMe(userId, req.body);
+      const user = await usersService.updateMe(req.user.id, req.body, req.file);
       res.status(200).json({ data: user });
     } catch (error) {
       next(error);
     }
   },
+
 };
