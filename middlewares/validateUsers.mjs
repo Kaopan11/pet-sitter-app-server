@@ -6,7 +6,7 @@ export const validateUpdateOwners = (req, res, next) => {
         return res.status(400).json({ message: "Name is required" });
     } 
 
-    if (!emai.trim()) {
+    if (!email.trim()) {
       return res.status(400).json({ message: "Email is required" });
     } else if (!/^[^\s@]+@[^\s@]+\.com$/i.test(email.trim())) {
         return res.status(400).json({ message: "Invalid email address" });
@@ -20,18 +20,14 @@ export const validateUpdateOwners = (req, res, next) => {
 
     if (!id_number?.trim()) {
       return res.status(400).json({ message: "ID number is required" });
-    } else if (!/^\d{13}$/.test(idNumber.trim())) {
+    } else if (!/^\d{13}$/.test(id_number.trim())) {
         return res.status(400).json({ message: "ID number must be 13 digits" });
     }
     
     if (!date_of_birth || !String(date_of_birth).trim()) {
         return res.status(400).json({ message: "Date of birth is required" });
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
         return res.status(400).json({ message: "Date of birth must be in YYYY-MM-DD format" });
-    }
-    
-    if (!avatar_url?.trim()) {
-        return res.status(400).json({ message: "Avatar URL is required" });
     }
     
     next();
