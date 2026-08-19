@@ -9,4 +9,22 @@ export const usersController = {
       next(error);
     }
   },
+  async getMe(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const user = await usersService.getMe(userId);
+      res.status(200).json({ data: user });
+    } catch (error) {
+      next(error);
+    }
+  },
+  async updateMe(req, res, next) {
+    try {
+      const userId = req.user.id;
+      const user = await usersService.updateMe(userId, req.body);
+      res.status(200).json({ data: user });
+    } catch (error) {
+      next(error);
+    }
+  },
 };
