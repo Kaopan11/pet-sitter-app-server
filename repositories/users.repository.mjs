@@ -45,4 +45,21 @@ export const usersRepository = {
     );
     return rows[0];
   },
+  
+  async updateById(id, { name, email, phone, id_number, date_of_birth, avatar_url }) {
+    const { rows } = await pool.query(
+      `UPDATE public.users
+       SET name = $2,
+           email = $3,
+           phone = $4,
+           id_number = $5,
+           date_of_birth = $6,
+           avatar_url = $7,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING ${USER_COLUMNS}`,
+      [id, name, email, phone, id_number, date_of_birth, avatar_url]
+    );
+    return rows[0] ?? null;
+  },
 };
