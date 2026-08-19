@@ -96,6 +96,8 @@ export const sittersService = {
       post_code: body.post_code,
       latitude: body.latitude,
       longitude: body.longitude,
+      bank_name: body.bank_name,
+      account_number: body.account_number,
     });
 
     const petTypes = [].concat(body.pet_types || []).filter(Boolean);

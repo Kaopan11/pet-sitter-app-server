@@ -43,6 +43,8 @@ export const sitterProfileMeRepository = {
         sitter_profiles.post_code,
         sitter_profiles.latitude,
         sitter_profiles.longitude,
+        sitter_profiles.bank_name,
+        sitter_profiles.account_number,
         sitter_profiles.approval_status,
         users.name,
         users.email,
@@ -137,6 +139,8 @@ export const sitterProfileMeRepository = {
       sub_district: profile.sub_district,
       province: profile.province,
       post_code: profile.post_code,
+      bank_name: profile.bank_name,
+      account_number: profile.account_number,
     };
 
     if (profile.latitude !== undefined && profile.latitude !== "") {
