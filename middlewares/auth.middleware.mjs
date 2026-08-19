@@ -18,6 +18,9 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const profile = await usersRepository.findById(data.user.id);
+    if (!profile) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     req.authUser = data.user; // ข้อมูลจาก Supabase Auth
     req.user = profile; // โปรไฟล์จาก public.users
