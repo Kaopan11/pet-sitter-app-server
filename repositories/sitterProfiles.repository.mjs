@@ -62,6 +62,53 @@ export const sitterProfilesRepository = {
     return rows[0];
   },
 
+  // ดึงโปรไฟล์ sitter 1 คน พร้อม petTypes[] และรูปภาพ (ใช้สำหรับหน้า Sitter Detail)
+  async findById(sitterId) {
+    const { rows } = await pool.query(
+      `SELECT
+         sp.user_id                                               AS id,
+         sp.display_name,
+         sp.introduction,
+         sp.my_place,
+         sp.services,
+         sp.address_detail,
+         sp.district,
+         sp.sub_district,
+         sp.province,
+         sp.post_code,
+         sp.experience_years,
+         sp.rating_avg,
+         sp.review_count,
+         sp.approval_status,
+         u.name           AS owner_name,
+         u.avatar_url,
+         -- รวม pet_types เป็น array เช่น ["Dog","Cat"]
+         COALESCE(
+           (
+             SELECT json_agg(pt.name ORDER BY pt.name)
+             FROM public.sitter_pet_types spt
+             INNER JOIN public.pet_types pt ON pt.id = spt.pet_type_id
+             WHERE spt.sitter_id = sp.user_id
+           ),
+           '[]'::json
+         )                                                        AS pet_types,
+         -- รวมรูปทั้งหมดเป็น array เรียงตาม sort_order
+         COALESCE(
+           (
+             SELECT json_agg(photo_url ORDER BY sort_order)
+             FROM public.sitter_photos
+             WHERE sitter_id = sp.user_id
+           ),
+           '[]'::json
+         )                                                        AS photos
+       FROM public.sitter_profiles sp
+       INNER JOIN public.users u ON u.id = sp.user_id
+       WHERE sp.user_id = $1`,
+      [sitterId]
+    );
+    return rows[0] ?? null;
+  },
+
   async findMany({ q, petTypes, rating, experience, pageSize, offset }) {
     const result = await pool.query(
       `

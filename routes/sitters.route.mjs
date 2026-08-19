@@ -37,6 +37,7 @@ function uploadSitterImages(req, res, next) {
 
 sittersRouter.get("/", sittersController.list);
 sittersRouter.get("/me", requireAuth, sittersController.getMyProfile);
+// ต้องวาง /me ก่อน /:id เพราะ Express อ่านบนลงล่าง — ถ้า /:id อยู่ก่อน /me จะถูกตีความว่า id = "me"
 sittersRouter.get("/:id", sittersController.getById);
 sittersRouter.put(
   "/me",
