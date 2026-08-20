@@ -1,3 +1,15 @@
+const MIN_OWNER_AGE = 18;
+export function getAge(dateOfBirth) {
+  const birth = new Date(`${dateOfBirth}T00:00:00`);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
 export const validateUpdateOwners = (req, res, next) => {
     const { name, email, phone, id_number, date_of_birth } = req.body ?? {};
 
@@ -27,6 +39,8 @@ export const validateUpdateOwners = (req, res, next) => {
         return res.status(400).json({ message: "Date of birth is required" });
     } else if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
         return res.status(400).json({ message: "Date of birth must be in YYYY-MM-DD format" });
+    } else if (getAge(date_of_birth) < MIN_OWNER_AGE) {
+        return res.status(400).json({ message: `You must be at least ${MIN_OWNER_AGE} years old` });
     }
     
     next();
