@@ -10,6 +10,7 @@ function toAuthUser(profile, isSitter) {
     email: profile.email,
     phone: profile.phone,
     name: profile.name ?? null,
+    avatarUrl: profile.avatar_url ?? null,
     isSitter,
   };
 }
