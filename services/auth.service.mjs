@@ -2,6 +2,7 @@ import supabase from "../repositories/supabase.mjs";
 import { usersRepository } from "../repositories/users.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
+import { normalizePhone } from "../utils/phone.mjs";
 
 // รูป user ที่ส่งกลับ Frontend — ไม่มีรหัสผ่าน และไม่มี column role
 function toAuthUser(profile, isSitter) {
@@ -18,6 +19,12 @@ function toAuthUser(profile, isSitter) {
 function isDuplicateEmailError(error) {
   const message = String(error?.message ?? "").toLowerCase();
   const code = String(error?.code ?? "").toLowerCase();
+  const constraint = String(error?.constraint ?? "").toLowerCase();
+
+  // 23505 จาก unique email — ไม่ปนกับ phone
+  if (code === "23505" && constraint.includes("phone")) {
+    return false;
+  }
 
   return (
     code === "user_already_exists" ||
@@ -28,14 +35,32 @@ function isDuplicateEmailError(error) {
   );
 }
 
+function isDuplicatePhoneError(error) {
+  const code = String(error?.code ?? "").toLowerCase();
+  const constraint = String(error?.constraint ?? "").toLowerCase();
+  const message = String(error?.message ?? "").toLowerCase();
+
+  return (
+    (code === "23505" && constraint.includes("phone")) ||
+    message.includes("users_phone_unique")
+  );
+}
+
 export const authService = {
   async register({ name, email, phone, password, asSitter }) {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedName = String(name).trim();
+    const normalizedPhone = normalizePhone(phone);
 
-    const existing = await usersRepository.findByEmail(normalizedEmail);
-    if (existing) {
-      throw httpError(409, "Email already exists");
+    const existingEmail = await usersRepository.findByEmail(normalizedEmail);
+    if (existingEmail) {
+      throw httpError(409, "Email is already in use");
+    }
+
+    // เช็คเบอร์ซ้ำก่อนสร้าง auth user — FE แสดงข้อความใต้ช่อง Phone
+    const existingPhone = await usersRepository.findByPhone(normalizedPhone);
+    if (existingPhone) {
+      throw httpError(409, "Phone number is already in use");
     }
 
     // 1) สร้างบัญชีใน Supabase Auth (เก็บรหัสที่นี่)
@@ -43,12 +68,12 @@ export const authService = {
       email: normalizedEmail,
       password,
       email_confirm: true,
-      user_metadata: { name: normalizedName, phone, asSitter },
+      user_metadata: { name: normalizedName, phone: normalizedPhone, asSitter },
     });
 
     if (authError) {
       if (isDuplicateEmailError(authError)) {
-        throw httpError(409, "Email already exists");
+        throw httpError(409, "Email is already in use");
       }
       throw httpError(400, authError.message);
     }
@@ -58,7 +83,7 @@ export const authService = {
       const profile = await usersRepository.create({
         id: authData.user.id,
         email: normalizedEmail,
-        phone,
+        phone: normalizedPhone,
         name: normalizedName,
       });
 
@@ -88,8 +113,11 @@ export const authService = {
       // insert users/sitter พัง → ลบ auth user ทิ้ง ไม่ให้ค้างกำพร้า
       await supabase.auth.admin.deleteUser(authData.user.id);
       if (error.statusCode) throw error;
+      if (isDuplicatePhoneError(error)) {
+        throw httpError(409, "Phone number is already in use");
+      }
       if (isDuplicateEmailError(error)) {
-        throw httpError(409, "Email already exists");
+        throw httpError(409, "Email is already in use");
       }
       throw error;
     }
