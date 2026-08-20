@@ -39,11 +39,14 @@ export const sitterProfilesRepository = {
   },
 
   async create({ userId, displayName }) {
+    // approval_status ต้องตรง CHECK ใน DB:
+    // 'Waiting for approve' | 'Approved' | 'Rejected'
+    // (เดิมใช้ 'pending' — หลัง migrate แล้วใส่ค่าเก่าจะ error)
     const { rows } = await pool.query(
       `INSERT INTO public.sitter_profiles (
          user_id, display_name, experience_years, rating_avg, review_count, approval_status
        )
-       VALUES ($1, $2, 0, 0, 0, 'pending')
+       VALUES ($1, $2, 0, 0, 0, 'Waiting for approve')
        RETURNING user_id, display_name, approval_status`,
       [userId, displayName]
     );

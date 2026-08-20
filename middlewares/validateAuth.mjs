@@ -1,5 +1,6 @@
+import { isValidPhone, normalizePhone } from "../utils/phone.mjs";
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^\d{10}$/;
 
 // ตรวจ body ตอนสมัคร ถ้าไม่ผ่านจะหยุดที่นี่ ไม่เข้า controller
 export const validateRegister = (req, res, next) => {
@@ -21,9 +22,12 @@ export const validateRegister = (req, res, next) => {
     return res.status(400).json({ message: "Phone is required" });
   }
 
-  if (!PHONE_PATTERN.test(String(phone))) {
+  // normalize ก่อน validate — "081 234 5678" กับ "0812345678" ถือเป็นเบอร์เดียวกัน
+  const normalizedPhone = normalizePhone(phone);
+  if (!isValidPhone(normalizedPhone)) {
     return res.status(400).json({ message: "Phone must be 10 digits" });
   }
+  req.body.phone = normalizedPhone;
 
   if (!password) {
     return res.status(400).json({ message: "Password is required" });

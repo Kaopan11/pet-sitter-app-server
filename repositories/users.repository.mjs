@@ -35,6 +35,17 @@ export const usersRepository = {
     return rows[0] ?? null;
   },
 
+  async findByPhone(phone) {
+    const { rows } = await pool.query(
+      `SELECT ${USER_COLUMNS}
+       FROM public.users
+       WHERE phone = $1
+       LIMIT 1`,
+      [phone]
+    );
+    return rows[0] ?? null;
+  },
+
   // id ต้องเป็นค่าเดียวกับ auth.users.id
   async create({ id, email, phone, name }) {
     const { rows } = await pool.query(
