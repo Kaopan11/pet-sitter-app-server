@@ -66,6 +66,7 @@ export const sittersService = {
       email,
       phone: body.phone,
       dateOfBirth: body.date_of_birth,
+      idNumber: body.id_number,
     };
 
     if (avatarFile) {
