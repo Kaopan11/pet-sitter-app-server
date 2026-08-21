@@ -25,4 +25,16 @@ export const authController = {
       next(error);
     }
   },
+
+  async becomeSitter(req, res, next) {
+    try {
+      const result = await authService.becomeSitter(req.user.id);
+      res.status(201).json({
+        message: "Become sitter success",
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 };
