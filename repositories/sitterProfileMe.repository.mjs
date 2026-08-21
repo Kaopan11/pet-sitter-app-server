@@ -49,6 +49,7 @@ export const sitterProfileMeRepository = {
         users.name,
         users.email,
         users.phone,
+        users.id_number,
         users.avatar_url,
         to_char(users.date_of_birth, 'YYYY-MM-DD') AS date_of_birth,
         COALESCE(
@@ -89,13 +90,14 @@ export const sitterProfileMeRepository = {
     return rows[0] ?? null;
   },
 
-  async updateUser(userId, { name, email, phone, avatarUrl, dateOfBirth }) {
+  async updateUser(userId, { name, email, phone, avatarUrl, dateOfBirth, idNumber }) {
     const query = buildUpdateQuery("users", "id", userId, {
       name,
       email,
       phone,
       avatar_url: avatarUrl,
       date_of_birth: dateOfBirth,
+      id_number: idNumber,
     });
 
     if (!query) {
