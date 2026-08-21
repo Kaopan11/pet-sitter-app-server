@@ -46,6 +46,16 @@ function isDuplicatePhoneError(error) {
   );
 }
 
+async function createSitterProfile(userId, displayName) {
+  const existing = await sitterProfilesRepository.findByUserId(userId);
+  if (existing) return existing;
+
+  return sitterProfilesRepository.create({
+    userId,
+    displayName,
+  });
+}
+
 export const authService = {
   async register({ name, email, phone, password, asSitter }) {
     const normalizedEmail = email.trim().toLowerCase();
@@ -89,10 +99,7 @@ export const authService = {
 
       // 3) ถ้าสมัครแบบ Sitter ใช้ name เป็น display_name
       if (asSitter) {
-        await sitterProfilesRepository.create({
-          userId: profile.id,
-          displayName: normalizedName,
-        });
+        await createSitterProfile(profile.id, normalizedName);
       }
 
       // 4) ล็อกอินทันทีเพื่อได้ token ส่งกลับ Frontend
@@ -147,6 +154,19 @@ export const authService = {
     return {
       token: data.session.access_token,
       user: toAuthUser(profile, Boolean(sitterProfile)),
+    };
+  },
+
+  async becomeSitter(userId) {
+    const profile = await usersRepository.findById(userId);
+    if (!profile) {
+      throw httpError(401, "Unauthorized");
+    }
+
+    await createSitterProfile(profile.id, profile.name || "Pet Sitter");
+
+    return {
+      user: toAuthUser(profile, true),
     };
   },
 };
