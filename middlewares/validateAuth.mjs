@@ -10,6 +10,15 @@ export const validateRegister = (req, res, next) => {
     return res.status(400).json({ message: "Name is required" });
   }
 
+  // ความยาวหลัง trim ต้องอยู่ระหว่าง 6–20 (ตรงกับ FE / Owner Profile)
+  const trimmedName = String(name).trim();
+  if (trimmedName.length < 6 || trimmedName.length > 20) {
+    return res.status(400).json({
+      message: "Name must be between 6 and 20 characters",
+    });
+  }
+  req.body.name = trimmedName;
+
   if (!email) {
     return res.status(400).json({ message: "Email is required" });
   }
