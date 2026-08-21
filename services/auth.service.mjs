@@ -5,6 +5,7 @@ import { httpError } from "../utils/httpError.mjs";
 import { normalizePhone } from "../utils/phone.mjs";
 
 // รูป user ที่ส่งกลับ Frontend — ไม่มีรหัสผ่าน และไม่มี column role
+// isSitter ต้องส่งเสมอ — FE ใช้ redirect ไป /sitter/profile หรือ /
 function toAuthUser(profile, isSitter) {
   return {
     id: profile.id,
@@ -12,7 +13,7 @@ function toAuthUser(profile, isSitter) {
     phone: profile.phone,
     name: profile.name ?? null,
     avatarUrl: profile.avatar_url ?? null,
-    isSitter,
+    isSitter: Boolean(isSitter),
   };
 }
 
@@ -133,22 +134,24 @@ export const authService = {
   async login({ email, password }) {
     const normalizedEmail = email.trim().toLowerCase();
 
+    // 1) หา email ใน public.users ก่อน — แยกข้อความให้ FE toast ได้
+    // ห้ามส่งข้อความที่มีทั้งคำว่า email และ password ในบรรทัดเดียว
+    const profile = await usersRepository.findByEmail(normalizedEmail);
+    if (!profile) {
+      throw httpError(401, "Email is incorrect");
+    }
+
+    // 2) email มีแล้ว → ลองรหัสผ่านกับ Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
     });
 
     if (error || !data.user || !data.session) {
-      throw httpError(401, "Invalid email or password");
+      throw httpError(401, "Password is incorrect");
     }
 
-    const profile = await usersRepository.findById(data.user.id);
-
-    if (!profile) {
-      throw httpError(401, "Invalid email or password");
-    }
-
-    // มีแถวใน sitter_profiles = เป็น sitter
+    // มีแถวใน sitter_profiles = เป็น sitter → FE ใช้ redirect ไป /sitter/profile
     const sitterProfile = await sitterProfilesRepository.findByUserId(profile.id);
 
     return {
