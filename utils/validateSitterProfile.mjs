@@ -36,6 +36,30 @@ export function validateSitterProfileBody(body) {
     throw httpError(400, "Email must include @ and end with .com");
   }
 
+  const idNumber = String(body.id_number ?? "").trim();
+  if (!idNumber) {
+    throw httpError(400, "ID number is required");
+  }
+  if (!/^\d{13}$/.test(idNumber)) {
+    throw httpError(400, "ID number must be 13 digits");
+  }
+
+  const dateOfBirth = String(body.date_of_birth ?? "").trim();
+  if (!dateOfBirth) {
+    throw httpError(400, "Date of birth is required");
+  }
+
+  const today = new Date();
+  const minBirthDate = new Date(
+    today.getFullYear() - 18,
+    today.getMonth(),
+    today.getDate(),
+  );
+  const birthDate = new Date(`${dateOfBirth}T00:00:00`);
+  if (Number.isNaN(birthDate.getTime()) || birthDate > minBirthDate) {
+    throw httpError(400, "Pet sitter must be at least 18 years old");
+  }
+
   const displayName = String(body.display_name ?? "").trim();
   if (!displayName) {
     throw httpError(400, "Pet sitter name is required");
