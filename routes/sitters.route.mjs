@@ -37,6 +37,7 @@ function uploadSitterImages(req, res, next) {
 
 sittersRouter.get("/", sittersController.list);
 sittersRouter.get("/me", requireAuth, sittersController.getMyProfile);
+sittersRouter.get("/:id", sittersController.getById);
 sittersRouter.put(
   "/me",
   [uploadSitterImages, requireAuth],

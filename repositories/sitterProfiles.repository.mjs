@@ -5,12 +5,21 @@ function formatPetTypeName(name) {
   return key ? key.charAt(0).toUpperCase() + key.slice(1) : "";
 }
 
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function toListItem(row) {
-  const petTypes = Array.isArray(row.pet_types)
-    ? row.pet_types
-    : typeof row.pet_types === "string"
-      ? JSON.parse(row.pet_types)
-      : [];
+  const petTypes = parseJsonArray(row.pet_types);
 
   return {
     id: row.id,
@@ -146,5 +155,68 @@ export const sitterProfilesRepository = {
       rows: result.rows.map(toListItem),
       total: countResult.rows[0]?.total ?? 0,
     };
+  },
+
+  async findPublicById(id) {
+    const { rows } = await pool.query(
+      `
+      select
+        sitter_profiles.user_id as id,
+        coalesce(sitter_profiles.display_name, users.name, 'Pet Sitter') as title,
+        users.name as sitter_name,
+        users.avatar_url,
+        concat_ws(', ', sitter_profiles.district, sitter_profiles.province) as location,
+        round(coalesce(sitter_profiles.rating_avg, 0))::int as rating,
+        sitter_profiles.experience_years as experience,
+        sitter_profiles.introduction,
+        sitter_profiles.services,
+        sitter_profiles.my_place,
+        sitter_profiles.district,
+        sitter_profiles.sub_district,
+        sitter_profiles.province,
+        sitter_profiles.latitude,
+        sitter_profiles.longitude,
+        (
+          select sitter_photos.photo_url
+          from sitter_photos
+          where sitter_photos.sitter_id = sitter_profiles.user_id
+          order by sitter_photos.sort_order asc
+          limit 1
+        ) as image_url,
+        coalesce(
+          (
+            select json_agg(
+              json_build_object(
+                'id', sitter_photos.id,
+                'photo_url', sitter_photos.photo_url,
+                'sort_order', sitter_photos.sort_order
+              )
+              order by sitter_photos.sort_order
+            )
+            from sitter_photos
+            where sitter_photos.sitter_id = sitter_profiles.user_id
+          ),
+          '[]'::json
+        ) as sitter_photos,
+        coalesce(
+          (
+            select json_agg(pet_types.name order by pet_types.name)
+            from sitter_pet_types
+            inner join pet_types
+            on pet_types.id = sitter_pet_types.pet_type_id
+            where sitter_pet_types.sitter_id = sitter_profiles.user_id
+          ),
+          '[]'::json
+        ) as pet_types
+      from sitter_profiles
+      inner join users
+      on users.id = sitter_profiles.user_id
+      where sitter_profiles.user_id = $1
+      limit 1
+      `,
+      [id]
+    );
+
+    return rows[0] ?? null;
   },
 };

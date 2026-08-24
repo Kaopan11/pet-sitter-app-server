@@ -1,4 +1,5 @@
 import { sitterProfileMeRepository } from "../repositories/sitterProfileMe.repository.mjs";
+import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import { validateSitterProfileBody } from "../utils/validateSitterProfile.mjs";
 import supabase from "../repositories/supabase.mjs";
@@ -35,6 +36,26 @@ export const sittersService = {
     }
 
     return profile;
+  },
+
+  async getPublicById(id) {
+    const isUuid =
+      typeof id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id
+      );
+
+    if (!isUuid) {
+      throw httpError(404, "Sitter profile not found");
+    }
+
+    const sitter = await sitterProfilesRepository.findPublicById(id);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter profile not found");
+    }
+
+    return sitter;
   },
 
   async updateMyProfile(userId, { body, avatarFile, galleryFiles }) {
