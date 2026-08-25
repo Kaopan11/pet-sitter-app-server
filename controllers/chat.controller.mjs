@@ -4,9 +4,11 @@ import { subscribeChatEvents } from "../services/chatEvents.mjs";
 export const chatController = {
   async createConversation(req, res, next) {
     try {
+      const otherUserId =
+        req.body?.otherUserId || req.body?.sitterId || req.body?.ownerId;
       const conversation = await chatService.createConversation(
         req.user.id,
-        req.body?.sitterId
+        otherUserId
       );
       res.status(200).json({ data: conversation });
     } catch (error) {

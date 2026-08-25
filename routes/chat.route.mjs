@@ -9,8 +9,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter(_req, file, callback) {
-    if (!["image/jpeg", "image/png"].includes(file.mimetype)) {
-      callback(new Error("Image must be .jpg, .jpeg, or .png"));
+    if (
+      !["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(
+        file.mimetype
+      )
+    ) {
+      callback(new Error("Image must be JPG, PNG, or WebP"));
       return;
     }
     callback(null, true);

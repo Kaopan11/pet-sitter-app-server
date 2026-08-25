@@ -23,6 +23,18 @@ export const conversationsRepository = {
     return rows[0] ?? null;
   },
 
+  async findBetweenUsers(userA, userB) {
+    const { rows } = await pool.query(
+      `SELECT id, owner_id, sitter_id, created_at
+       FROM public.conversations
+       WHERE (owner_id = $1 AND sitter_id = $2)
+          OR (owner_id = $2 AND sitter_id = $1)
+       LIMIT 1`,
+      [userA, userB]
+    );
+    return rows[0] ?? null;
+  },
+
   async create({ ownerId, sitterId }) {
     try {
       const { rows } = await pool.query(

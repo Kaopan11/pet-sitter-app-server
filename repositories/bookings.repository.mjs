@@ -171,6 +171,46 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  async findManyByOwnerId(ownerId) {
+    const { rows } = await connectionPool.query(
+      `
+      SELECT
+        bookings.id,
+        bookings.sitter_id,
+        bookings.owner_id,
+        bookings.booking_date,
+        bookings.start_time,
+        bookings.end_time,
+        bookings.duration_hours,
+        bookings.total_price,
+        bookings.transaction_no,
+        bookings.status,
+        bookings.updated_at,
+        payments.paid_at AS transaction_date,
+        owner_user.name AS owner_name,
+        COALESCE(sitter_profiles.display_name, sitter_user.name) AS sitter_name,
+        sitter_user.avatar_url AS sitter_avatar_url,
+        pet_names.pet_names
+      FROM bookings
+      INNER JOIN users AS owner_user ON owner_user.id = bookings.owner_id
+      INNER JOIN users AS sitter_user ON sitter_user.id = bookings.sitter_id
+      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
+      LEFT JOIN payments ON payments.booking_id = bookings.id
+      LEFT JOIN LATERAL (
+        SELECT string_agg(pets.name, ', ' ORDER BY pets.name) AS pet_names
+        FROM booking_pets
+        INNER JOIN pets ON pets.id = booking_pets.pet_id
+        WHERE booking_pets.booking_id = bookings.id
+      ) AS pet_names ON true
+      WHERE bookings.owner_id = $1
+      ORDER BY bookings.created_at DESC
+      `,
+      [ownerId]
+    );
+
+    return rows;
+  },
+
   async updateStatusByIdAndSitterId(sitterId, bookingId, status) {
     const { rows } = await connectionPool.query(
       `

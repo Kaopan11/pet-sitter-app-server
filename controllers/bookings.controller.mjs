@@ -49,6 +49,15 @@ export const bookingsController = {
     }
   },
 
+  async getOwnerBookings(req, res, next) {
+    try {
+      const data = await bookingsService.getOwnerBookings(req.user.id);
+      return res.status(200).json({ data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async updateMyBookingStatus(req, res, next) {
     try {
       const { status } = req.body;

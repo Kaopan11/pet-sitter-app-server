@@ -5,6 +5,7 @@ import authRouter from "./routes/auth.route.mjs";
 import usersRouter from "./routes/users.route.mjs";
 import sittersRouter from "./routes/sitters.route.mjs";
 import chatRouter from "./routes/chat.route.mjs";
+import ownerBookingsRouter from "./routes/ownerBookings.route.mjs";
 import { startChatListener } from "./services/chatEvents.mjs";
 
 const app = express();
@@ -30,6 +31,7 @@ app.use("/api/auth", authRouter); // register / login
 app.use("/api/users", usersRouter); // รายการ users
 app.use("/api/sitters", sittersRouter); // sitter list + profile + booking list
 app.use("/api/conversations", chatRouter); // owner–sitter chat
+app.use("/api/bookings", ownerBookingsRouter); // owner booking history
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "API is working" });

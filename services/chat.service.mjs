@@ -1,11 +1,17 @@
 import { conversationsRepository } from "../repositories/conversations.repository.mjs";
 import { messagesRepository } from "../repositories/messages.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
+import { usersRepository } from "../repositories/users.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import supabase from "../repositories/supabase.mjs";
 
 const PHOTOS_BUCKET = "photos";
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png"];
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+];
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,7 +30,7 @@ function parseConversationId(value) {
 
 async function uploadChatImage(file, userId) {
   if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
-    throw httpError(400, "Image must be .jpg, .jpeg, or .png");
+    throw httpError(400, "Image must be JPG, PNG, or WebP");
   }
 
   const safeName = String(file.originalname ?? "image")
@@ -96,29 +102,56 @@ function assertMember(conversation, userId) {
 }
 
 export const chatService = {
-  async createConversation(userId, sitterId) {
-    if (!isUuid(sitterId)) {
-      throw httpError(400, "sitterId is required");
+  async createConversation(userId, otherUserId) {
+    if (!isUuid(otherUserId)) {
+      throw httpError(400, "Chat partner is required");
     }
-    if (sitterId === userId) {
+    if (otherUserId === userId) {
       throw httpError(400, "You cannot chat with yourself");
     }
 
-    const sitter = await sitterProfilesRepository.findByUserId(sitterId);
-    if (!sitter) {
-      throw httpError(404, "Pet sitter not found");
+    const otherUser = await usersRepository.findById(otherUserId);
+    if (!otherUser) {
+      throw httpError(404, "User not found");
     }
 
-    const existing = await conversationsRepository.findByOwnerAndSitter(
+    const meSitter = await sitterProfilesRepository.findByUserId(userId);
+    const otherSitter = await sitterProfilesRepository.findByUserId(otherUserId);
+
+    if (!meSitter && !otherSitter) {
+      throw httpError(400, "You can only chat with a pet sitter");
+    }
+
+    const existing = await conversationsRepository.findBetweenUsers(
       userId,
-      sitterId
+      otherUserId
     );
-    const conversation =
-      existing ??
-      (await conversationsRepository.create({
-        ownerId: userId,
-        sitterId,
-      }));
+    if (existing) {
+      return {
+        id: String(existing.id),
+        ownerId: existing.owner_id,
+        sitterId: existing.sitter_id,
+        createdAt: existing.created_at,
+      };
+    }
+
+    let ownerId;
+    let sitterId;
+    if (otherSitter && !meSitter) {
+      ownerId = userId;
+      sitterId = otherUserId;
+    } else if (meSitter && !otherSitter) {
+      ownerId = otherUserId;
+      sitterId = userId;
+    } else {
+      ownerId = userId;
+      sitterId = otherUserId;
+    }
+
+    const conversation = await conversationsRepository.create({
+      ownerId,
+      sitterId,
+    });
 
     return {
       id: String(conversation.id),
