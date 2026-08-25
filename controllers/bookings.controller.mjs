@@ -71,4 +71,18 @@ export const bookingsController = {
       next(error);
     }
   },
+
+  // owner booking Day 3 — POST /api/bookings (cash)
+  async create(req, res, next) {
+    try {
+      const created = await bookingsService.createCashBooking(
+        req.user,
+        req.body
+      );
+
+      return res.status(201).json({ data: created });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

@@ -186,4 +186,98 @@ export const bookingsRepository = {
 
     return rows[0] ?? null;
   },
+
+  // owner booking Day 3 — สร้าง booking + pets + payment ใน transaction เดียว
+  async createCashBookingWithPets({
+    ownerId,
+    sitterId,
+    bookingDate,
+    startTime,
+    endTime,
+    durationHours,
+    contactName,
+    contactEmail,
+    contactPhone,
+    additionalMessage,
+    totalPrice,
+    petIds,
+  }) {
+    const client = await connectionPool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const { rows: bookingRows } = await client.query(
+        `
+        INSERT INTO bookings (
+          owner_id,
+          sitter_id,
+          booking_date,
+          start_time,
+          end_time,
+          duration_hours,
+          contact_name,
+          contact_email,
+          contact_phone,
+          additional_message,
+          total_price,
+          status
+        )
+        VALUES (
+          $1, $2, $3::date, $4::time, $5::time, $6,
+          $7, $8, $9, $10, $11, 'waiting_confirm'
+        )
+        RETURNING id, status, total_price
+        `,
+        [
+          ownerId,
+          sitterId,
+          bookingDate,
+          startTime,
+          endTime,
+          durationHours,
+          contactName,
+          contactEmail,
+          contactPhone,
+          additionalMessage,
+          totalPrice,
+        ]
+      );
+
+      const booking = bookingRows[0];
+
+      for (const petId of petIds) {
+        await client.query(
+          `
+          INSERT INTO booking_pets (booking_id, pet_id)
+          VALUES ($1, $2)
+          `,
+          [booking.id, petId]
+        );
+      }
+
+      const { rows: paymentRows } = await client.query(
+        `
+        INSERT INTO payments (booking_id, amount, status)
+        VALUES ($1, $2, 'pending')
+        RETURNING status
+        `,
+        [booking.id, totalPrice]
+      );
+
+      await client.query("COMMIT");
+
+      return {
+        bookingId: booking.id,
+        status: booking.status,
+        totalPrice: Number(booking.total_price),
+        paymentStatus: paymentRows[0].status,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
 };

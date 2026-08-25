@@ -5,7 +5,8 @@
   "main": "app.mjs",
   "scripts": {
     "start": "node app.mjs",
-    "dev": "nodemon app.mjs"
+    "dev": "nodemon app.mjs",
+    "test": "node --test utils/**/*.test.mjs"
   },
   "repository": {
     "type": "git",
