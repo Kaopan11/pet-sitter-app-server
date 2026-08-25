@@ -4,6 +4,8 @@ import cors from "cors";
 import authRouter from "./routes/auth.route.mjs";
 import usersRouter from "./routes/users.route.mjs";
 import sittersRouter from "./routes/sitters.route.mjs";
+import chatRouter from "./routes/chat.route.mjs";
+import { startChatListener } from "./services/chatEvents.mjs";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -27,6 +29,7 @@ app.use(express.json()); // อ่าน JSON จาก request body
 app.use("/api/auth", authRouter); // register / login
 app.use("/api/users", usersRouter); // รายการ users
 app.use("/api/sitters", sittersRouter); // sitter list + profile + booking list
+app.use("/api/conversations", chatRouter); // owner–sitter chat
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "API is working" });
@@ -48,4 +51,7 @@ app.use((error, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  startChatListener().catch((error) => {
+    console.error("Chat realtime listener failed:", error.message);
+  });
 });
