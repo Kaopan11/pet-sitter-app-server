@@ -187,8 +187,8 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
-  // owner booking Day 3 — สร้าง booking + pets + payment ใน transaction เดียว
-  async createCashBookingWithPets({
+  // owner booking — สร้าง booking + pets + payment ใน transaction เดียว
+  async createBookingWithPets({
     ownerId,
     sitterId,
     bookingDate,
@@ -279,5 +279,35 @@ export const bookingsRepository = {
     } finally {
       client.release();
     }
+  },
+
+  async updatePaymentTokenByBookingId(bookingId, paymentToken) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET payment_token = $2
+      WHERE booking_id = $1
+      RETURNING status, payment_token
+      `,
+      [bookingId, paymentToken]
+    );
+    return rows[0] ?? null;
+  },
+
+  async updatePaymentStatusByToken(paymentToken, status, paidAt = null) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET status = $2::varchar,
+          paid_at = CASE
+            WHEN $2::text = 'paid' THEN COALESCE($3::timestamptz, NOW())
+            ELSE paid_at
+          END
+      WHERE payment_token = $1
+      RETURNING booking_id, status, paid_at
+      `,
+      [paymentToken, status, paidAt]
+    );
+    return rows[0] ?? null;
   },
 };

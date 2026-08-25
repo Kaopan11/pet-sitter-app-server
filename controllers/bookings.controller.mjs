@@ -72,13 +72,10 @@ export const bookingsController = {
     }
   },
 
-  // owner booking Day 3 — POST /api/bookings (cash)
+  // owner booking — POST /api/bookings (cash | stripe)
   async create(req, res, next) {
     try {
-      const created = await bookingsService.createCashBooking(
-        req.user,
-        req.body
-      );
+      const created = await bookingsService.createBooking(req.user, req.body);
 
       return res.status(201).json({ data: created });
     } catch (error) {

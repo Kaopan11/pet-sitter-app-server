@@ -4,7 +4,7 @@ import { requireAuth } from "../middlewares/auth.middleware.mjs";
 
 const ownerBookingsRouter = Router();
 
-// Day 3 — owner สร้าง booking ด้วย cash
+// Day 3–5 — owner สร้าง booking ด้วย cash | stripe
 ownerBookingsRouter.post("/", requireAuth, bookingsController.create);
 
 export default ownerBookingsRouter;

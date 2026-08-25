@@ -1,10 +1,12 @@
 import { bookingsRepository } from "../repositories/bookings.repository.mjs";
 import { petsRepository } from "../repositories/pets.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
+import { getStripe } from "../repositories/stripe.mjs";
 import {
   calculateBookingTotal,
   resolveDurationHours,
 } from "../utils/bookingPricing.mjs";
+import { toStripeAmount } from "../utils/stripeAmount.mjs";
 import { httpError } from "../utils/httpError.mjs";
 
 const ALLOWED_TRANSITIONS = {
@@ -14,6 +16,7 @@ const ALLOWED_TRANSITIONS = {
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const PAYMENT_METHODS = new Set(["cash", "stripe"]);
 
 function normalizePetIds(petIds) {
   if (!Array.isArray(petIds) || petIds.length === 0) {
@@ -46,7 +49,6 @@ function parsePetTypes(value) {
 }
 
 export const bookingsService = {
-  // get bookings ไม่ต้องเช็คอะไรเพิ่มเติมจึงไม่ต้องทำอะไร
   async getMyBookings(sitterId, search, status, limit, offset) {
     return bookingsRepository.findManyBySitterId(
       sitterId,
@@ -94,8 +96,8 @@ export const bookingsService = {
     return updated;
   },
 
-  // owner booking Day 3 — cash only (ไม่เชื่อ totalPrice จาก client)
-  async createCashBooking(owner, body) {
+  // owner booking — cash | stripe (ไม่เชื่อ totalPrice จาก client)
+  async createBooking(owner, body) {
     const {
       sitterId,
       date,
@@ -106,8 +108,8 @@ export const bookingsService = {
       paymentMethod,
     } = body ?? {};
 
-    if (paymentMethod !== "cash") {
-      throw httpError(400, "paymentMethod must be cash");
+    if (!PAYMENT_METHODS.has(paymentMethod)) {
+      throw httpError(400, "paymentMethod must be cash or stripe");
     }
 
     if (typeof sitterId !== "string" || !sitterId.trim()) {
@@ -160,7 +162,7 @@ export const bookingsService = {
         ? message.trim()
         : null;
 
-    return bookingsRepository.createCashBookingWithPets({
+    const created = await bookingsRepository.createBookingWithPets({
       ownerId: owner.id,
       sitterId,
       bookingDate: date.trim(),
@@ -174,5 +176,26 @@ export const bookingsService = {
       totalPrice,
       petIds,
     });
+
+    if (paymentMethod === "cash") {
+      return created;
+    }
+
+    const paymentIntent = await getStripe().paymentIntents.create({
+      amount: toStripeAmount(created.totalPrice),
+      currency: "thb",
+      automatic_payment_methods: { enabled: true },
+      metadata: { bookingId: String(created.bookingId) },
+    });
+
+    await bookingsRepository.updatePaymentTokenByBookingId(
+      created.bookingId,
+      paymentIntent.id
+    );
+
+    return {
+      ...created,
+      clientSecret: paymentIntent.client_secret,
+    };
   },
 };
