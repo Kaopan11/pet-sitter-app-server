@@ -1,4 +1,5 @@
 import { usersRepository } from "../repositories/users.repository.mjs";
+import { petsRepository } from "../repositories/pets.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import supabase from "../repositories/supabase.mjs";
 
@@ -22,8 +23,6 @@ async function uploadImageFile(file, folder, userId) {
   return publicUrl;
 }
 
-
-
 export const usersService = {
   async getAllUsers() {
     return usersRepository.findAll();
@@ -34,7 +33,12 @@ export const usersService = {
     if (!user) throw httpError(404, "User not found");
     return user;
   },
-  
+
+  // booking Day 0 — รายการสัตว์ของ owner
+  async getPetsByOwner(userId) {
+    return petsRepository.findByOwnerId(userId);
+  },
+
   async updateMe(userId, body, avatarFile) {
     const current = await usersRepository.findById(userId);
     if (!current) throw httpError(404, "User not found");
@@ -57,5 +61,4 @@ export const usersService = {
     if (!updated) throw httpError(404, "User not found");
     return updated;
   },
-  
 };
