@@ -4,11 +4,15 @@ import cors from "cors";
 import authRouter from "./routes/auth.route.mjs";
 import usersRouter from "./routes/users.route.mjs";
 import sittersRouter from "./routes/sitters.route.mjs";
+<<<<<<< HEAD
 import petsRouter from "./routes/pets.route.mjs";
 import chatRouter from "./routes/chat.route.mjs";
 import ownerBookingsRouter from "./routes/ownerBookings.route.mjs";
 import stripeWebhookRouter from "./routes/stripeWebhook.route.mjs";
 import { startChatListener } from "./services/chatEvents.mjs";
+=======
+import ownerBookingsRouter from "./routes/ownerBookings.route.mjs";
+>>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -38,9 +42,13 @@ app.use(express.json({ limit: "2mb" })); // อ่าน JSON จาก request 
 app.use("/api/auth", authRouter); // register / login
 app.use("/api/users", usersRouter); // รายการ users
 app.use("/api/sitters", sittersRouter); // sitter list + profile + booking list
+<<<<<<< HEAD
 app.use("/api/pets", petsRouter); // pet list + profile
 app.use("/api/conversations", chatRouter); // owner–sitter chat
 app.use("/api/bookings", ownerBookingsRouter); // owner booking history + create (cash | stripe)
+=======
+app.use("/api/bookings", ownerBookingsRouter); // owner booking history
+>>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "API is working" });

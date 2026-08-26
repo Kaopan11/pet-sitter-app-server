@@ -1,4 +1,5 @@
 import { bookingsRepository } from "../repositories/bookings.repository.mjs";
+<<<<<<< HEAD
 import { petsRepository } from "../repositories/pets.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { getStripe } from "../repositories/stripe.mjs";
@@ -7,6 +8,10 @@ import {
   resolveDurationHours,
 } from "../utils/bookingPricing.mjs";
 import { toStripeAmount } from "../utils/stripeAmount.mjs";
+=======
+import { reviewsRepository } from "../repositories/reviews.repository.mjs";
+import { reportsRepository } from "../repositories/reports.repository.mjs";
+>>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
 import { httpError } from "../utils/httpError.mjs";
 
 const ALLOWED_TRANSITIONS = {
@@ -135,6 +140,7 @@ export const bookingsService = {
     return updated;
   },
 
+<<<<<<< HEAD
   async getOwnerBookings(ownerId) {
     const rows = await bookingsRepository.findManyByOwnerId(ownerId);
     return rows.map(toOwnerBooking);
@@ -241,5 +247,73 @@ export const bookingsService = {
       ...created,
       clientSecret: paymentIntent.client_secret,
     };
+=======
+  async getOwnerBookings(ownerId, search, status, limit, offset) {
+    return bookingsRepository.findManyByOwnerId(
+      ownerId,
+      search,
+      status,
+      limit,
+      offset
+    );
+  },
+
+  async getOwnerBookingById(ownerId, bookingId) {
+    const booking = await bookingsRepository.findByIdAndOwnerId(
+      ownerId,
+      bookingId
+    );
+
+    if (!booking) {
+      throw httpError(404, "Booking not found");
+    }
+
+    return booking;
+  },
+
+  async submitReview(ownerId, bookingId, rating, text) {
+    const booking = await bookingsRepository.findByIdAndOwnerId(
+      ownerId,
+      bookingId
+    );
+
+    if (!booking) {
+      throw httpError(404, "Booking not found");
+    }
+
+    if (booking.status !== "success") {
+      throw httpError(400, "Can only review a completed booking");
+    }
+
+    if (booking.review) {
+      throw httpError(409, "Booking already reviewed");
+    }
+
+    return reviewsRepository.create({
+      bookingId,
+      ownerId,
+      sitterId: booking.sitter_id,
+      rating,
+      text,
+    });
+  },
+
+  async submitReport(ownerId, bookingId, subject, description) {
+    const booking = await bookingsRepository.findByIdAndOwnerId(
+      ownerId,
+      bookingId
+    );
+
+    if (!booking) {
+      throw httpError(404, "Booking not found");
+    }
+
+    return reportsRepository.create({
+      bookingId,
+      reporterId: ownerId,
+      subject,
+      description,
+    });
+>>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
   },
 };

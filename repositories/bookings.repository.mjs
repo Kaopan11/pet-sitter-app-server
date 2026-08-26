@@ -227,6 +227,7 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+<<<<<<< HEAD
   // owner booking — สร้าง booking + pets + payment ใน transaction เดียว
   async createBookingWithPets({
     ownerId,
@@ -348,6 +349,139 @@ export const bookingsRepository = {
       `,
       [paymentToken, status, paidAt]
     );
+=======
+  async findManyByOwnerId(ownerId, search, status, limit, offset) {
+    const { rows: countRows } = await connectionPool.query(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM bookings
+      INNER JOIN users AS sitter_users ON sitter_users.id = bookings.sitter_id
+      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
+      WHERE bookings.owner_id = $1
+        AND ($2::text IS NULL OR sitter_users.name ILIKE $2 OR sitter_profiles.display_name ILIKE $2)
+        AND ($3::text IS NULL OR bookings.status = $3)
+      `,
+      [ownerId, search, status]
+    );
+
+    const { rows } = await connectionPool.query(
+      `
+      SELECT
+        bookings.id,
+        bookings.sitter_id,
+        COALESCE(sitter_profiles.display_name, sitter_users.name) AS sitter_name,
+        sitter_users.avatar_url AS sitter_avatar_url,
+        STRING_AGG(pets.name, ', ' ORDER BY pets.name) AS pet_names,
+        bookings.duration_hours,
+        bookings.booking_date,
+        bookings.start_time,
+        bookings.end_time,
+        bookings.total_price,
+        bookings.transaction_no,
+        bookings.status,
+        bookings.created_at,
+        bookings.updated_at,
+        (
+          SELECT json_build_object(
+            'rating', reviews.rating,
+            'text', reviews.comment,
+            'created_at', reviews.created_at
+          )
+          FROM reviews
+          WHERE reviews.booking_id = bookings.id
+        ) AS review
+      FROM bookings
+      INNER JOIN users AS sitter_users ON sitter_users.id = bookings.sitter_id
+      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
+      LEFT JOIN booking_pets ON booking_pets.booking_id = bookings.id
+      LEFT JOIN pets ON pets.id = booking_pets.pet_id
+      WHERE bookings.owner_id = $1
+        AND ($2::text IS NULL OR sitter_users.name ILIKE $2 OR sitter_profiles.display_name ILIKE $2)
+        AND ($3::text IS NULL OR bookings.status = $3)
+      GROUP BY bookings.id, sitter_profiles.display_name, sitter_users.name, sitter_users.avatar_url
+      ORDER BY bookings.created_at DESC
+      LIMIT $4 OFFSET $5
+      `,
+      [ownerId, search, status, limit, offset]
+    );
+
+    return {
+      rows,
+      totalBookings: countRows[0]?.total ?? 0,
+    };
+  },
+
+  async findByIdAndOwnerId(ownerId, bookingId) {
+    const { rows } = await connectionPool.query(
+      `
+      SELECT
+        bookings.id,
+        bookings.sitter_id,
+        json_build_object(
+          'id', sitter_users.id,
+          'name', COALESCE(sitter_profiles.display_name, sitter_users.name),
+          'avatar_url', sitter_users.avatar_url
+        ) AS sitter,
+        (
+          SELECT COUNT(*)::int
+          FROM booking_pets
+          WHERE booking_pets.booking_id = bookings.id
+        ) AS pet_count,
+        bookings.duration_hours,
+        bookings.booking_date,
+        bookings.start_time,
+        bookings.end_time,
+        bookings.total_price,
+        bookings.transaction_no,
+        payments.paid_at AS transaction_date,
+        bookings.additional_message,
+        bookings.status,
+        bookings.created_at,
+        bookings.updated_at,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', pets.id,
+                'name', pets.name,
+                'pet_type', pet_types.name,
+                'breed', pets.breed,
+                'sex', pets.sex,
+                'age_months', pets.age_months,
+                'color', pets.color,
+                'weight_kg', pets.weight_kg,
+                'about', pets.about,
+                'avatar_url', pets.avatar_url
+              )
+              ORDER BY pets.id
+            )
+            FROM booking_pets
+            INNER JOIN pets ON pets.id = booking_pets.pet_id
+            INNER JOIN pet_types ON pet_types.id = pets.pet_type_id
+            WHERE booking_pets.booking_id = bookings.id
+          ),
+          '[]'::json
+        ) AS pets,
+        (
+          SELECT json_build_object(
+            'rating', reviews.rating,
+            'text', reviews.comment,
+            'created_at', reviews.created_at
+          )
+          FROM reviews
+          WHERE reviews.booking_id = bookings.id
+        ) AS review
+      FROM bookings
+      INNER JOIN users AS sitter_users ON sitter_users.id = bookings.sitter_id
+      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
+      LEFT JOIN payments ON payments.booking_id = bookings.id
+      WHERE bookings.id = $1
+        AND bookings.owner_id = $2
+      `,
+      [bookingId, ownerId]
+    );
+
+>>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
     return rows[0] ?? null;
   },
 };
