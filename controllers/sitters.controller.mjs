@@ -44,6 +44,16 @@ export const sittersController = {
     }
   },
 
+  // booking Day 0 — รายละเอียด sitter (ใช้ service จาก dev)
+  async getById(req, res, next) {
+    try {
+      const sitter = await sittersService.getPublicById(req.params.id);
+      return res.status(200).json({ data: sitter });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getMyProfile(req, res, next) {
     try {
       const profile = await sittersService.getProfileByUserId(req.user.id);

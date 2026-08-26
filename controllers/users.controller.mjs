@@ -18,6 +18,15 @@ export const usersController = {
       next(error);
     }
   },
+  async getMyPets(req, res, next) {
+    try {
+      const pets = await usersService.getPetsByOwner(req.user.id);
+      res.status(200).json({ data: pets });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async updateMe(req, res, next) {
     try {
       const user = await usersService.updateMe(req.user.id, req.body, req.file);
