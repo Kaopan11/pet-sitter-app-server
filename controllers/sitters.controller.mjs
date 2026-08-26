@@ -80,6 +80,15 @@ export const sittersController = {
     }
   },
 
+  async getAvailability(req, res, next) {
+    try {
+      const slots = await sittersService.getAvailability(req.params.id);
+      return res.status(200).json({ data: slots });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getMyProfile(req, res, next) {
     try {
       const profile = await sittersService.getProfileByUserId(req.user.id);

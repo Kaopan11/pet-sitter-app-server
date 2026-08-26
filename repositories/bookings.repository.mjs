@@ -347,6 +347,7 @@ export const bookingsRepository = {
           owner_id,
           sitter_id,
           start_date,
+          end_date,
           start_time,
           end_time,
           duration_hours,
@@ -358,7 +359,7 @@ export const bookingsRepository = {
           status
         )
         VALUES (
-          $1, $2, $3::date, $4::time, $5::time, $6,
+          $1, $2, $3::date, $3::date, $4::time, $5::time, $6,
           $7, $8, $9, $10, $11, 'waiting_confirm'
         )
         RETURNING id, status, total_price
@@ -426,6 +427,48 @@ export const bookingsRepository = {
       [bookingId, paymentToken]
     );
     return rows[0] ?? null;
+  },
+
+  async findBusySlotsBySitterId(sitterId) {
+    const { rows } = await connectionPool.query(
+      `
+      SELECT
+        to_char(start_date, 'YYYY-MM-DD') AS start_date,
+        to_char(COALESCE(end_date, start_date), 'YYYY-MM-DD') AS end_date,
+        to_char(start_time, 'HH24:MI') AS start_time,
+        to_char(end_time, 'HH24:MI') AS end_time
+      FROM bookings
+      WHERE sitter_id = $1
+        AND status IN ('waiting_confirm', 'waiting_service', 'in_service')
+        AND COALESCE(end_date, start_date) >= CURRENT_DATE
+      ORDER BY start_date, start_time
+      `,
+      [sitterId]
+    );
+
+    return rows.map((row) => ({
+      startDate: row.start_date,
+      endDate: row.end_date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+    }));
+  },
+
+  async hasOverlappingBooking({ sitterId, date, startTime, endTime }) {
+    const { rows } = await connectionPool.query(
+      `
+      SELECT id
+      FROM bookings
+      WHERE sitter_id = $1
+        AND status IN ('waiting_confirm', 'waiting_service', 'in_service')
+        AND (start_date + start_time) < ($2::date + $4::time)
+        AND (COALESCE(end_date, start_date) + end_time) > ($2::date + $3::time)
+      LIMIT 1
+      `,
+      [sitterId, date, startTime, endTime]
+    );
+
+    return Boolean(rows[0]);
   },
 
   async updatePaymentStatusByToken(paymentToken, status, paidAt = null) {

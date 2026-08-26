@@ -1,6 +1,7 @@
 import { sitterProfileMeRepository } from "../repositories/sitterProfileMe.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
+import { bookingsRepository } from "../repositories/bookings.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import { validateSitterProfileBody } from "../utils/validateSitterProfile.mjs";
 import supabase from "../repositories/supabase.mjs";
@@ -99,6 +100,11 @@ export const sittersService = {
       limit: pageSize,
       summary,
     };
+  },
+
+  async getAvailability(id) {
+    await this.getPublicById(id);
+    return bookingsRepository.findBusySlotsBySitterId(id);
   },
 
   async updateMyProfile(userId, { body, avatarFile, galleryFiles }) {
