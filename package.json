@@ -5,7 +5,8 @@
   "main": "app.mjs",
   "scripts": {
     "start": "node app.mjs",
-    "dev": "nodemon app.mjs"
+    "dev": "nodemon app.mjs",
+    "test": "node --test utils/**/*.test.mjs"
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "nodemon": "^3.1.14",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "stripe": "^22.5.0"
   }
 }
