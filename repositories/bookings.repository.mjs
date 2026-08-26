@@ -171,185 +171,6 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
-  async findManyByOwnerId(ownerId) {
-    const { rows } = await connectionPool.query(
-      `
-      SELECT
-        bookings.id,
-        bookings.sitter_id,
-        bookings.owner_id,
-        bookings.booking_date,
-        bookings.start_time,
-        bookings.end_time,
-        bookings.duration_hours,
-        bookings.total_price,
-        bookings.transaction_no,
-        bookings.status,
-        bookings.updated_at,
-        payments.paid_at AS transaction_date,
-        owner_user.name AS owner_name,
-        COALESCE(sitter_profiles.display_name, sitter_user.name) AS sitter_name,
-        sitter_user.avatar_url AS sitter_avatar_url,
-        pet_names.pet_names
-      FROM bookings
-      INNER JOIN users AS owner_user ON owner_user.id = bookings.owner_id
-      INNER JOIN users AS sitter_user ON sitter_user.id = bookings.sitter_id
-      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
-      LEFT JOIN payments ON payments.booking_id = bookings.id
-      LEFT JOIN LATERAL (
-        SELECT string_agg(pets.name, ', ' ORDER BY pets.name) AS pet_names
-        FROM booking_pets
-        INNER JOIN pets ON pets.id = booking_pets.pet_id
-        WHERE booking_pets.booking_id = bookings.id
-      ) AS pet_names ON true
-      WHERE bookings.owner_id = $1
-      ORDER BY bookings.created_at DESC
-      `,
-      [ownerId]
-    );
-
-    return rows;
-  },
-
-  async updateStatusByIdAndSitterId(sitterId, bookingId, status) {
-    const { rows } = await connectionPool.query(
-      `
-      UPDATE bookings
-      SET status = $3,
-          updated_at = NOW()
-      WHERE id = $1
-        AND sitter_id = $2
-      RETURNING id, status
-      `,
-      [bookingId, sitterId, status]
-    );
-
-    return rows[0] ?? null;
-  },
-
-<<<<<<< HEAD
-  // owner booking — สร้าง booking + pets + payment ใน transaction เดียว
-  async createBookingWithPets({
-    ownerId,
-    sitterId,
-    bookingDate,
-    startTime,
-    endTime,
-    durationHours,
-    contactName,
-    contactEmail,
-    contactPhone,
-    additionalMessage,
-    totalPrice,
-    petIds,
-  }) {
-    const client = await connectionPool.connect();
-
-    try {
-      await client.query("BEGIN");
-
-      const { rows: bookingRows } = await client.query(
-        `
-        INSERT INTO bookings (
-          owner_id,
-          sitter_id,
-          booking_date,
-          start_time,
-          end_time,
-          duration_hours,
-          contact_name,
-          contact_email,
-          contact_phone,
-          additional_message,
-          total_price,
-          status
-        )
-        VALUES (
-          $1, $2, $3::date, $4::time, $5::time, $6,
-          $7, $8, $9, $10, $11, 'waiting_confirm'
-        )
-        RETURNING id, status, total_price
-        `,
-        [
-          ownerId,
-          sitterId,
-          bookingDate,
-          startTime,
-          endTime,
-          durationHours,
-          contactName,
-          contactEmail,
-          contactPhone,
-          additionalMessage,
-          totalPrice,
-        ]
-      );
-
-      const booking = bookingRows[0];
-
-      for (const petId of petIds) {
-        await client.query(
-          `
-          INSERT INTO booking_pets (booking_id, pet_id)
-          VALUES ($1, $2)
-          `,
-          [booking.id, petId]
-        );
-      }
-
-      const { rows: paymentRows } = await client.query(
-        `
-        INSERT INTO payments (booking_id, amount, status)
-        VALUES ($1, $2, 'pending')
-        RETURNING status
-        `,
-        [booking.id, totalPrice]
-      );
-
-      await client.query("COMMIT");
-
-      return {
-        bookingId: booking.id,
-        status: booking.status,
-        totalPrice: Number(booking.total_price),
-        paymentStatus: paymentRows[0].status,
-      };
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  },
-
-  async updatePaymentTokenByBookingId(bookingId, paymentToken) {
-    const { rows } = await connectionPool.query(
-      `
-      UPDATE payments
-      SET payment_token = $2
-      WHERE booking_id = $1
-      RETURNING status, payment_token
-      `,
-      [bookingId, paymentToken]
-    );
-    return rows[0] ?? null;
-  },
-
-  async updatePaymentStatusByToken(paymentToken, status, paidAt = null) {
-    const { rows } = await connectionPool.query(
-      `
-      UPDATE payments
-      SET status = $2::varchar,
-          paid_at = CASE
-            WHEN $2::text = 'paid' THEN COALESCE($3::timestamptz, NOW())
-            ELSE paid_at
-          END
-      WHERE payment_token = $1
-      RETURNING booking_id, status, paid_at
-      `,
-      [paymentToken, status, paidAt]
-    );
-=======
   async findManyByOwnerId(ownerId, search, status, limit, offset) {
     const { rows: countRows } = await connectionPool.query(
       `
@@ -481,7 +302,146 @@ export const bookingsRepository = {
       [bookingId, ownerId]
     );
 
->>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
+    return rows[0] ?? null;
+  },
+
+  async updateStatusByIdAndSitterId(sitterId, bookingId, status) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE bookings
+      SET status = $3,
+          updated_at = NOW()
+      WHERE id = $1
+        AND sitter_id = $2
+      RETURNING id, status
+      `,
+      [bookingId, sitterId, status]
+    );
+
+    return rows[0] ?? null;
+  },
+
+  // owner booking — สร้าง booking + pets + payment ใน transaction เดียว
+  async createBookingWithPets({
+    ownerId,
+    sitterId,
+    bookingDate,
+    startTime,
+    endTime,
+    durationHours,
+    contactName,
+    contactEmail,
+    contactPhone,
+    additionalMessage,
+    totalPrice,
+    petIds,
+  }) {
+    const client = await connectionPool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const { rows: bookingRows } = await client.query(
+        `
+        INSERT INTO bookings (
+          owner_id,
+          sitter_id,
+          booking_date,
+          start_time,
+          end_time,
+          duration_hours,
+          contact_name,
+          contact_email,
+          contact_phone,
+          additional_message,
+          total_price,
+          status
+        )
+        VALUES (
+          $1, $2, $3::date, $4::time, $5::time, $6,
+          $7, $8, $9, $10, $11, 'waiting_confirm'
+        )
+        RETURNING id, status, total_price
+        `,
+        [
+          ownerId,
+          sitterId,
+          bookingDate,
+          startTime,
+          endTime,
+          durationHours,
+          contactName,
+          contactEmail,
+          contactPhone,
+          additionalMessage,
+          totalPrice,
+        ]
+      );
+
+      const booking = bookingRows[0];
+
+      for (const petId of petIds) {
+        await client.query(
+          `
+          INSERT INTO booking_pets (booking_id, pet_id)
+          VALUES ($1, $2)
+          `,
+          [booking.id, petId]
+        );
+      }
+
+      const { rows: paymentRows } = await client.query(
+        `
+        INSERT INTO payments (booking_id, amount, status)
+        VALUES ($1, $2, 'pending')
+        RETURNING status
+        `,
+        [booking.id, totalPrice]
+      );
+
+      await client.query("COMMIT");
+
+      return {
+        bookingId: booking.id,
+        status: booking.status,
+        totalPrice: Number(booking.total_price),
+        paymentStatus: paymentRows[0].status,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async updatePaymentTokenByBookingId(bookingId, paymentToken) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET payment_token = $2
+      WHERE booking_id = $1
+      RETURNING status, payment_token
+      `,
+      [bookingId, paymentToken]
+    );
+    return rows[0] ?? null;
+  },
+
+  async updatePaymentStatusByToken(paymentToken, status, paidAt = null) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET status = $2::varchar,
+          paid_at = CASE
+            WHEN $2::text = 'paid' THEN COALESCE($3::timestamptz, NOW())
+            ELSE paid_at
+          END
+      WHERE payment_token = $1
+      RETURNING booking_id, status, paid_at
+      `,
+      [paymentToken, status, paidAt]
+    );
     return rows[0] ?? null;
   },
 };

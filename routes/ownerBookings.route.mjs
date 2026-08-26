@@ -4,11 +4,6 @@ import { requireAuth } from "../middlewares/auth.middleware.mjs";
 
 const ownerBookingsRouter = Router();
 
-<<<<<<< HEAD
-ownerBookingsRouter.get("/owner", requireAuth, bookingsController.getOwnerBookings);
-// Day 3–5 — owner สร้าง booking ด้วย cash | stripe
-ownerBookingsRouter.post("/", requireAuth, bookingsController.create);
-=======
 ownerBookingsRouter.get(
   "/owner",
   requireAuth,
@@ -29,6 +24,7 @@ ownerBookingsRouter.post(
   requireAuth,
   bookingsController.submitOwnerReport
 );
->>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
+// owner สร้าง booking ด้วย cash | stripe
+ownerBookingsRouter.post("/", requireAuth, bookingsController.create);
 
 export default ownerBookingsRouter;

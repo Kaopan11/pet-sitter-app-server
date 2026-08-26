@@ -51,46 +51,6 @@ export const bookingsController = {
 
   async getOwnerBookings(req, res, next) {
     try {
-      const data = await bookingsService.getOwnerBookings(req.user.id);
-      return res.status(200).json({ data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async updateMyBookingStatus(req, res, next) {
-    try {
-      const { status } = req.body;
-
-      if (!status) {
-        return res.status(400).json({ message: "Status is required" });
-      }
-
-      const updated = await bookingsService.updateMyBookingStatus(
-        req.user.id,
-        req.params.id,
-        status
-      );
-
-      return res.status(200).json({
-        message: "Booking status updated successfully",
-        data: updated,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-<<<<<<< HEAD
-  // owner booking — POST /api/bookings (cash | stripe)
-  async create(req, res, next) {
-    try {
-      const created = await bookingsService.createBooking(req.user, req.body);
-
-      return res.status(201).json({ data: created });
-=======
-  async getOwnerBookings(req, res, next) {
-    try {
       const ownerId = req.user.id;
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 20;
@@ -181,7 +141,40 @@ export const bookingsController = {
         message: "Report submitted successfully",
         data: report,
       });
->>>>>>> 8863466 (feat(bookings): add owner bookings endpoints and review/report functionality)
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateMyBookingStatus(req, res, next) {
+    try {
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const updated = await bookingsService.updateMyBookingStatus(
+        req.user.id,
+        req.params.id,
+        status
+      );
+
+      return res.status(200).json({
+        message: "Booking status updated successfully",
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // owner booking — POST /api/bookings (cash | stripe)
+  async create(req, res, next) {
+    try {
+      const created = await bookingsService.createBooking(req.user, req.body);
+
+      return res.status(201).json({ data: created });
     } catch (error) {
       next(error);
     }
