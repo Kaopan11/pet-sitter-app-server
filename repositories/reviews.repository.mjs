@@ -1,8 +1,8 @@
-import connectionPool from "../utils/db.mjs";
+import { pool } from "./db.mjs";
 
 export const reviewsRepository = {
   async create({ bookingId, ownerId, sitterId, rating, text }) {
-    const client = await connectionPool.connect();
+    const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
@@ -29,5 +29,60 @@ export const reviewsRepository = {
     } finally {
       client.release();
     }
+  },
+
+  async findBySitterId({ sitterId, rating, pageSize, offset }) {
+    const result = await pool.query(
+      `
+      select
+        reviews.id,
+        users.name,
+        users.avatar_url,
+        reviews.rating,
+        reviews.comment,
+        reviews.created_at
+      from public.reviews
+      inner join public.users
+        on users.id = reviews.owner_id
+      where reviews.sitter_id = $1
+        and (reviews.rating = $2 or $2 is null)
+      order by reviews.created_at desc
+      limit $3 offset $4
+      `,
+      [sitterId, rating, pageSize, offset]
+    );
+
+    const countResult = await pool.query(
+      `
+      select count(*)::int as total
+      from public.reviews
+      where sitter_id = $1
+        and (rating = $2 or $2 is null)
+      `,
+      [sitterId, rating]
+    );
+
+    return {
+      rows: result.rows,
+      total: countResult.rows[0]?.total ?? 0,
+    };
+  },
+
+  async getSummary(sitterId) {
+    const { rows } = await pool.query(
+      `
+      select
+        coalesce(round(avg(rating)::numeric, 1), 0) as rating_avg,
+        count(*)::int as review_count
+      from public.reviews
+      where sitter_id = $1
+      `,
+      [sitterId]
+    );
+
+    return {
+      rating_avg: Number(rows[0]?.rating_avg ?? 0),
+      review_count: Number(rows[0]?.review_count ?? 0),
+    };
   },
 };

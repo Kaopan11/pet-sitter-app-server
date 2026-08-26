@@ -214,6 +214,8 @@ export const sitterProfilesRepository = {
         users.avatar_url,
         concat_ws(', ', sitter_profiles.district, sitter_profiles.province) as location,
         round(coalesce(sitter_profiles.rating_avg, 0))::int as rating,
+        coalesce(sitter_profiles.rating_avg, 0) as rating_avg,
+        coalesce(sitter_profiles.review_count, 0) as review_count,
         sitter_profiles.experience_years as experience,
         sitter_profiles.introduction,
         sitter_profiles.services,
