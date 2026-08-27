@@ -8,21 +8,27 @@ const clients = new Map();
 let listenClient = null;
 let reconnectTimer = null;
 
+function clientKey(userId) {
+  return String(userId ?? "");
+}
+
 function sendEvent(res, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  if (typeof res.flush === "function") res.flush();
 }
 
 function removeClient(userId, res) {
-  const set = clients.get(userId);
+  const key = clientKey(userId);
+  const set = clients.get(key);
   if (!set) return;
   set.delete(res);
-  if (set.size === 0) clients.delete(userId);
+  if (set.size === 0) clients.delete(key);
 }
 
 function broadcast(payload) {
-  const ownerId = payload.ownerId;
-  const sitterId = payload.sitterId;
-  const targets = new Set([ownerId, sitterId].filter(Boolean));
+  const targets = new Set(
+    [payload.ownerId, payload.sitterId].filter(Boolean).map(clientKey),
+  );
 
   for (const userId of targets) {
     const set = clients.get(userId);
@@ -35,6 +41,22 @@ function broadcast(payload) {
       }
     }
   }
+}
+
+export function publishChatEvent({
+  type,
+  conversationId,
+  message = null,
+  ownerId,
+  sitterId,
+}) {
+  broadcast({
+    type,
+    conversationId: String(conversationId ?? ""),
+    message,
+    ownerId,
+    sitterId,
+  });
 }
 
 async function handleNotification(raw) {
@@ -119,10 +141,7 @@ function scheduleReconnect() {
   if (reconnectTimer) return;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    startChatListener().catch((error) => {
-      console.error("Chat realtime reconnect failed:", error.message);
-      scheduleReconnect();
-    });
+    startChatListener();
   }, 3000);
 }
 
@@ -137,33 +156,41 @@ export async function startChatListener() {
     listenClient = null;
   }
 
-  const client = await pool.connect();
-  listenClient = client;
+  try {
+    const client = await pool.connect();
+    listenClient = client;
 
-  client.on("error", (error) => {
-    console.error("Chat realtime connection error:", error.message);
-    listenClient = null;
-    try {
-      client.release();
-    } catch {
-      // ignore
-    }
-    scheduleReconnect();
-  });
-
-  client.on("notification", (notification) => {
-    if (notification.channel !== CHANNEL || !notification.payload) return;
-    handleNotification(notification.payload).catch((error) => {
-      console.error("Chat realtime notify failed:", error.message);
+    client.on("error", (error) => {
+      console.error("Chat realtime connection error:", error.message);
+      listenClient = null;
+      try {
+        client.release();
+      } catch {
+        // ignore
+      }
+      scheduleReconnect();
     });
-  });
 
-  await ensureNotifyTrigger(client);
-  await client.query(`LISTEN ${CHANNEL}`);
-  console.log("Chat realtime listener ready");
+    client.on("notification", (notification) => {
+      if (notification.channel !== CHANNEL || !notification.payload) return;
+      handleNotification(notification.payload).catch((error) => {
+        console.error("Chat realtime notify failed:", error.message);
+      });
+    });
+
+    await ensureNotifyTrigger(client);
+    await client.query(`LISTEN ${CHANNEL}`);
+    console.log("Chat realtime listener ready");
+  } catch (error) {
+    listenClient = null;
+    console.error("Chat realtime listener failed:", error.message);
+    scheduleReconnect();
+  }
 }
 
 export function subscribeChatEvents(userId, req, res) {
+  req.socket?.setTimeout?.(0);
+  res.setTimeout?.(0);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
@@ -173,10 +200,11 @@ export function subscribeChatEvents(userId, req, res) {
     res.flushHeaders();
   }
 
-  let set = clients.get(userId);
+  const key = clientKey(userId);
+  let set = clients.get(key);
   if (!set) {
     set = new Set();
-    clients.set(userId, set);
+    clients.set(key, set);
   }
   set.add(res);
 

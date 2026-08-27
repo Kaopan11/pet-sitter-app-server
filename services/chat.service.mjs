@@ -2,6 +2,7 @@ import { conversationsRepository } from "../repositories/conversations.repositor
 import { messagesRepository } from "../repositories/messages.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { usersRepository } from "../repositories/users.repository.mjs";
+import { publishChatEvent } from "./chatEvents.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import supabase from "../repositories/supabase.mjs";
 
@@ -178,8 +179,28 @@ export const chatService = {
       readerId: userId,
     });
 
+    publishChatEvent({
+      type: "read",
+      conversationId: id,
+      ownerId: conversation.owner_id,
+      sitterId: conversation.sitter_id,
+    });
+
     const rows = await messagesRepository.listByConversationId(id);
     return rows.map(toMessage);
+  },
+
+  async markConversationRead(userId, conversationId) {
+    const id = parseConversationId(conversationId);
+
+    const conversation = await conversationsRepository.findById(id);
+    if (!conversation) throw httpError(404, "Conversation not found");
+    assertMember(conversation, userId);
+
+    await messagesRepository.markRead({
+      conversationId: id,
+      readerId: userId,
+    });
   },
 
   async sendMessage(userId, conversationId, { content, imageFile } = {}) {
@@ -204,6 +225,14 @@ export const chatService = {
       content: text || null,
       imageUrl,
     });
-    return toMessage(row);
+    const message = toMessage(row);
+    publishChatEvent({
+      type: "message",
+      conversationId: message.conversationId,
+      message,
+      ownerId: conversation.owner_id,
+      sitterId: conversation.sitter_id,
+    });
+    return message;
   },
 };
