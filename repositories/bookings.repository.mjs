@@ -8,7 +8,7 @@ export const bookingsRepository = {
         users.name AS pet_owner_name,
         COUNT(booking_pets.pet_id)::int AS pet_count,
         bookings.duration_hours,
-        bookings.booking_date,
+        bookings.start_date,
         bookings.start_time,
         bookings.end_time,
         bookings.status
@@ -127,7 +127,7 @@ export const bookingsRepository = {
           WHERE booking_pets.booking_id = bookings.id
         ) AS pet_count,
         bookings.duration_hours,
-        bookings.booking_date,
+        bookings.start_date,
         bookings.start_time,
         bookings.end_time,
         bookings.total_price,
@@ -194,7 +194,7 @@ export const bookingsRepository = {
         sitter_users.avatar_url AS sitter_avatar_url,
         STRING_AGG(pets.name, ', ' ORDER BY pets.name) AS pet_names,
         bookings.duration_hours,
-        bookings.booking_date,
+        bookings.start_date,
         bookings.start_time,
         bookings.end_time,
         bookings.total_price,
@@ -249,7 +249,7 @@ export const bookingsRepository = {
           WHERE booking_pets.booking_id = bookings.id
         ) AS pet_count,
         bookings.duration_hours,
-        bookings.booking_date,
+        bookings.start_date,
         bookings.start_time,
         bookings.end_time,
         bookings.total_price,
@@ -346,7 +346,7 @@ export const bookingsRepository = {
         INSERT INTO bookings (
           owner_id,
           sitter_id,
-          booking_date,
+          start_date,
           start_time,
           end_time,
           duration_hours,
