@@ -43,5 +43,6 @@ chatRouter.get("/", chatController.listConversations);
 chatRouter.get("/events", chatController.streamEvents);
 chatRouter.get("/:id/messages", chatController.listMessages);
 chatRouter.post("/:id/messages", uploadChatImage, chatController.sendMessage);
+chatRouter.post("/:id/read", chatController.markConversationRead);
 
 export default chatRouter;

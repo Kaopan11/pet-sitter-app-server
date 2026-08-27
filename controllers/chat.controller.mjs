@@ -49,6 +49,15 @@ export const chatController = {
     }
   },
 
+  async markConversationRead(req, res, next) {
+    try {
+      await chatService.markConversationRead(req.user.id, req.params.id);
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  },
+
   streamEvents(req, res, next) {
     try {
       subscribeChatEvents(req.user.id, req, res);
