@@ -3,6 +3,13 @@ import { usersRepository } from "../repositories/users.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import { normalizePhone } from "../utils/phone.mjs";
+import {
+  buildResetRedirectUrl,
+  runForgotPassword,
+} from "./forgotPassword.mjs";
+import { runResetPassword } from "./resetPassword.mjs";
+import { runResolveOAuthSession } from "./oauthSession.mjs";
+import { runCompleteOAuthProfile } from "./oauthComplete.mjs";
 
 // รูป user ที่ส่งกลับ Frontend — ไม่มีรหัสผ่าน และไม่มี column role
 // isSitter ต้องส่งเสมอ — FE ใช้ redirect ไป /sitter/profile หรือ /
@@ -171,5 +178,102 @@ export const authService = {
     return {
       user: toAuthUser(profile, true),
     };
+  },
+
+  /**
+   * ขอลิงก์รีเซ็ตรหัสผ่าน (Ticket #2)
+   * body.email → ตรวจรูปแบบที่ middleware แล้ว · service ค้น users + สั่ง Supabase ส่งเมล
+   */
+  async forgotPassword({ email }) {
+    return runForgotPassword(email, {
+      findByEmail: (normalizedEmail) =>
+        usersRepository.findByEmail(normalizedEmail),
+      // Supabase จะส่งอีเมล recovery · redirectTo ต้องอยู่ใน Allow List ของ Dashboard
+      sendResetEmail: async (normalizedEmail, redirectTo) =>
+        supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo }),
+      getResetRedirectUrl: () => buildResetRedirectUrl(),
+    });
+  },
+
+  /**
+   * ตั้งรหัสใหม่จากลิงก์รีเซ็ต (Ticket #3)
+   * body: { accessToken, newPassword }
+   * — ไม่ auto-login · FE ให้ user ไปหน้า login เองหลังสำเร็จ
+   */
+  async resetPassword({ accessToken, newPassword }) {
+    return runResetPassword(
+      { accessToken, newPassword },
+      {
+        // ใช้ JWT จากอีเมลยืนยันว่าเป็น session จริง (pattern เดียวกับ requireAuth)
+        getUserByAccessToken: async (token) => {
+          const { data, error } = await supabase.auth.getUser(token);
+          return { user: data?.user ?? null, error };
+        },
+        // SERVICE_ROLE ตั้งรหัสให้ user id ที่ยืนยันแล้ว
+        updatePassword: async (userId, password) => {
+          const { error } = await supabase.auth.admin.updateUserById(userId, {
+            password,
+          });
+          return { error };
+        },
+      }
+    );
+  },
+
+  /**
+   * Ticket #4 — หลัง OAuth: มี public.users แล้วหรือยัง
+   * @param {string} accessToken จาก Authorization Bearer
+   */
+  async resolveOAuthSession(accessToken) {
+    return runResolveOAuthSession(accessToken, {
+      getUserByAccessToken: async (token) => {
+        const { data, error } = await supabase.auth.getUser(token);
+        return { user: data?.user ?? null, error };
+      },
+      findProfileById: (id) => usersRepository.findById(id),
+      hasSitterProfile: async (userId) => {
+        const sitter = await sitterProfilesRepository.findByUserId(userId);
+        return Boolean(sitter);
+      },
+      toAuthUser,
+    });
+  },
+
+  /**
+   * Ticket #5 — กรอก name+phone หลัง OAuth ครั้งแรก
+   * @param {string} accessToken จาก Authorization Bearer
+   * @param {{ name: string, phone: string }} body
+   */
+  async completeOAuthProfile(accessToken, { name, phone }) {
+    return runCompleteOAuthProfile(
+      { accessToken, name, phone },
+      {
+        getUserByAccessToken: async (token) => {
+          const { data, error } = await supabase.auth.getUser(token);
+          return { user: data?.user ?? null, error };
+        },
+        findProfileById: (id) => usersRepository.findById(id),
+        findProfileByPhone: (phoneValue) =>
+          usersRepository.findByPhone(phoneValue),
+        createProfile: async (row) => {
+          try {
+            return await usersRepository.create(row);
+          } catch (error) {
+            if (isDuplicatePhoneError(error)) {
+              throw httpError(409, "Phone number is already in use");
+            }
+            if (isDuplicateEmailError(error)) {
+              throw httpError(409, "Email is already in use");
+            }
+            throw error;
+          }
+        },
+        hasSitterProfile: async (userId) => {
+          const sitter = await sitterProfilesRepository.findByUserId(userId);
+          return Boolean(sitter);
+        },
+        toAuthUser,
+      }
+    );
   },
 };

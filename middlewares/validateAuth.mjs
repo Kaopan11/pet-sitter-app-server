@@ -1,52 +1,34 @@
-import { isValidPhone, normalizePhone } from "../utils/phone.mjs";
+import {
+  parseEmail,
+  parseName,
+  parsePassword,
+  parsePhone,
+} from "../utils/authValidation.mjs";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * Express middleware ตรวจ body ก่อนเข้า auth controller
+ * กฎจริงอยู่ที่ utils/authValidation — ที่นี่แค่ map ผลลัพธ์ → 400 หรือ next()
+ */
+
+function rejectIfInvalid(result, req, res, bodyKey) {
+  if (!result.ok) {
+    return res.status(400).json({ message: result.message });
+  }
+  // เขียนค่าที่ normalize แล้วกลับเข้า body ให้ service ใช้ต่อได้เลย
+  req.body[bodyKey] = result.value;
+  return null;
+}
 
 // ตรวจ body ตอนสมัคร ถ้าไม่ผ่านจะหยุดที่นี่ ไม่เข้า controller
 export const validateRegister = (req, res, next) => {
   const { name, email, phone, password, asSitter } = req.body ?? {};
 
-  if (!name || !String(name).trim()) {
-    return res.status(400).json({ message: "Name is required" });
-  }
+  if (rejectIfInvalid(parseName(name), req, res, "name")) return;
+  if (rejectIfInvalid(parseEmail(email), req, res, "email")) return;
+  if (rejectIfInvalid(parsePhone(phone), req, res, "phone")) return;
+  if (rejectIfInvalid(parsePassword(password), req, res, "password")) return;
 
-  // ความยาวหลัง trim ต้องอยู่ระหว่าง 6–20 (ตรงกับ FE / Owner Profile)
-  const trimmedName = String(name).trim();
-  if (trimmedName.length < 6 || trimmedName.length > 20) {
-    return res.status(400).json({
-      message: "Name must be between 6 and 20 characters",
-    });
-  }
-  req.body.name = trimmedName;
-
-  if (!email) {
-    return res.status(400).json({ message: "Email is required" });
-  }
-
-  if (!EMAIL_PATTERN.test(email)) {
-    return res.status(400).json({ message: "Invalid email" });
-  }
-
-  if (!phone) {
-    return res.status(400).json({ message: "Phone is required" });
-  }
-
-  // normalize ก่อน validate — "081 234 5678" กับ "0812345678" ถือเป็นเบอร์เดียวกัน
-  const normalizedPhone = normalizePhone(phone);
-  if (!isValidPhone(normalizedPhone)) {
-    return res.status(400).json({ message: "Phone must be 10 digits" });
-  }
-  req.body.phone = normalizedPhone;
-
-  if (!password) {
-    return res.status(400).json({ message: "Password is required" });
-  }
-
-  if (String(password).length < 6) {
-    return res.status(400).json({ message: "Password must be at least 6 characters" });
-  }
-
-  // asSitter ต้องเป็น true/false จริงๆ ไม่ใช่ string
+  // asSitter ต้องเป็น true/false จริงๆ ไม่ใช่ string — เฉพาะ register
   if (typeof asSitter !== "boolean") {
     return res.status(400).json({ message: "asSitter must be true or false" });
   }
@@ -57,6 +39,7 @@ export const validateRegister = (req, res, next) => {
 export const validateLogin = (req, res, next) => {
   const { email, password } = req.body ?? {};
 
+  // Login เดิมไม่เช็ครูปแบบอีเมลเข้ม — แค่ต้องมีค่า (คงพฤติกรรมเดิม)
   if (!email) {
     return res.status(400).json({ message: "Email is required" });
   }
@@ -64,6 +47,49 @@ export const validateLogin = (req, res, next) => {
   if (!password) {
     return res.status(400).json({ message: "Password is required" });
   }
+
+  next();
+};
+
+/** POST /api/auth/forgot-password — ต้องมีอีเมลรูปทรงถูกต้อง */
+export const validateForgotPassword = (req, res, next) => {
+  const { email } = req.body ?? {};
+
+  if (rejectIfInvalid(parseEmail(email), req, res, "email")) return;
+
+  next();
+};
+
+/**
+ * POST /api/auth/reset-password
+ * body: { accessToken, newPassword } — รหัสใหม่ใช้กฎเดียวกับ register
+ */
+export const validateResetPassword = (req, res, next) => {
+  const { accessToken, newPassword } = req.body ?? {};
+
+  if (!accessToken || !String(accessToken).trim()) {
+    return res.status(400).json({ message: "accessToken is required" });
+  }
+  req.body.accessToken = String(accessToken).trim();
+
+  if (rejectIfInvalid(parsePassword(newPassword), req, res, "newPassword")) {
+    return;
+  }
+
+  next();
+};
+
+/**
+ * POST /api/auth/oauth/complete
+ * กฎ name/phone ตรวจใน runCompleteOAuthProfile หลังเช็คว่ามีโปรไฟล์แล้วหรือยัง
+ * (idempotent: มีโปรไฟล์แล้วไม่บังคับ body)
+ * export ไว้ถ้า FE/เทสอยากเช็ครูปแบบล่วงหน้า — route หลักไม่บังคับก่อน service
+ */
+export const validateOAuthComplete = (req, res, next) => {
+  const { name, phone } = req.body ?? {};
+
+  if (rejectIfInvalid(parseName(name), req, res, "name")) return;
+  if (rejectIfInvalid(parsePhone(phone), req, res, "phone")) return;
 
   next();
 };
