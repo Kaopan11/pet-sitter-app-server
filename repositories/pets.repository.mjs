@@ -33,6 +33,22 @@ export const petsRepository = {
     return rows;
   },
 
+  // owner booking — ดึงสัตว์หลาย id พร้อมตรวจว่าเป็นของ owner คนนี้จริง
+  async findManyByIds(petIds, ownerId) {
+    const { rows } = await pool.query(
+      `SELECT
+         pets.id,
+         pets.name,
+         pet_types.name AS pet_type
+       FROM public.pets
+       INNER JOIN public.pet_types ON pet_types.id = pets.pet_type_id
+       WHERE pets.id = ANY($1::bigint[])
+         AND pets.owner_id = $2`,
+      [petIds, ownerId]
+    );
+    return rows;
+  },
+
   async findById(id) {
     const { rows } = await pool.query(
       `SELECT ${PET_COLUMNS}

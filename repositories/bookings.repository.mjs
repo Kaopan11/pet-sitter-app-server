@@ -8,7 +8,7 @@ export const bookingsRepository = {
         users.name AS pet_owner_name,
         COUNT(booking_pets.pet_id)::int AS pet_count,
         bookings.duration_hours,
-        bookings.booking_date,
+        bookings.start_date,
         bookings.start_time,
         bookings.end_time,
         bookings.status
@@ -127,7 +127,7 @@ export const bookingsRepository = {
           WHERE booking_pets.booking_id = bookings.id
         ) AS pet_count,
         bookings.duration_hours,
-        bookings.booking_date,
+        bookings.start_date,
         bookings.start_time,
         bookings.end_time,
         bookings.total_price,
@@ -171,6 +171,140 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  async findManyByOwnerId(ownerId, search, status, limit, offset) {
+    const { rows: countRows } = await connectionPool.query(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM bookings
+      INNER JOIN users AS sitter_users ON sitter_users.id = bookings.sitter_id
+      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
+      WHERE bookings.owner_id = $1
+        AND ($2::text IS NULL OR sitter_users.name ILIKE $2 OR sitter_profiles.display_name ILIKE $2)
+        AND ($3::text IS NULL OR bookings.status = $3)
+      `,
+      [ownerId, search, status]
+    );
+
+    const { rows } = await connectionPool.query(
+      `
+      SELECT
+        bookings.id,
+        bookings.sitter_id,
+        COALESCE(sitter_profiles.display_name, sitter_users.name) AS sitter_name,
+        sitter_users.avatar_url AS sitter_avatar_url,
+        STRING_AGG(pets.name, ', ' ORDER BY pets.name) AS pet_names,
+        bookings.duration_hours,
+        bookings.start_date,
+        bookings.start_time,
+        bookings.end_time,
+        bookings.total_price,
+        bookings.transaction_no,
+        bookings.status,
+        bookings.created_at,
+        bookings.updated_at,
+        (
+          SELECT json_build_object(
+            'rating', reviews.rating,
+            'text', reviews.comment,
+            'created_at', reviews.created_at
+          )
+          FROM reviews
+          WHERE reviews.booking_id = bookings.id
+        ) AS review
+      FROM bookings
+      INNER JOIN users AS sitter_users ON sitter_users.id = bookings.sitter_id
+      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
+      LEFT JOIN booking_pets ON booking_pets.booking_id = bookings.id
+      LEFT JOIN pets ON pets.id = booking_pets.pet_id
+      WHERE bookings.owner_id = $1
+        AND ($2::text IS NULL OR sitter_users.name ILIKE $2 OR sitter_profiles.display_name ILIKE $2)
+        AND ($3::text IS NULL OR bookings.status = $3)
+      GROUP BY bookings.id, sitter_profiles.display_name, sitter_users.name, sitter_users.avatar_url
+      ORDER BY bookings.created_at DESC
+      LIMIT $4 OFFSET $5
+      `,
+      [ownerId, search, status, limit, offset]
+    );
+
+    return {
+      rows,
+      totalBookings: countRows[0]?.total ?? 0,
+    };
+  },
+
+  async findByIdAndOwnerId(ownerId, bookingId) {
+    const { rows } = await connectionPool.query(
+      `
+      SELECT
+        bookings.id,
+        bookings.sitter_id,
+        json_build_object(
+          'id', sitter_users.id,
+          'name', COALESCE(sitter_profiles.display_name, sitter_users.name),
+          'avatar_url', sitter_users.avatar_url
+        ) AS sitter,
+        (
+          SELECT COUNT(*)::int
+          FROM booking_pets
+          WHERE booking_pets.booking_id = bookings.id
+        ) AS pet_count,
+        bookings.duration_hours,
+        bookings.start_date,
+        bookings.start_time,
+        bookings.end_time,
+        bookings.total_price,
+        bookings.transaction_no,
+        payments.paid_at AS transaction_date,
+        bookings.additional_message,
+        bookings.status,
+        bookings.created_at,
+        bookings.updated_at,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', pets.id,
+                'name', pets.name,
+                'pet_type', pet_types.name,
+                'breed', pets.breed,
+                'sex', pets.sex,
+                'age_months', pets.age_months,
+                'color', pets.color,
+                'weight_kg', pets.weight_kg,
+                'about', pets.about,
+                'avatar_url', pets.avatar_url
+              )
+              ORDER BY pets.id
+            )
+            FROM booking_pets
+            INNER JOIN pets ON pets.id = booking_pets.pet_id
+            INNER JOIN pet_types ON pet_types.id = pets.pet_type_id
+            WHERE booking_pets.booking_id = bookings.id
+          ),
+          '[]'::json
+        ) AS pets,
+        (
+          SELECT json_build_object(
+            'rating', reviews.rating,
+            'text', reviews.comment,
+            'created_at', reviews.created_at
+          )
+          FROM reviews
+          WHERE reviews.booking_id = bookings.id
+        ) AS review
+      FROM bookings
+      INNER JOIN users AS sitter_users ON sitter_users.id = bookings.sitter_id
+      LEFT JOIN sitter_profiles ON sitter_profiles.user_id = bookings.sitter_id
+      LEFT JOIN payments ON payments.booking_id = bookings.id
+      WHERE bookings.id = $1
+        AND bookings.owner_id = $2
+      `,
+      [bookingId, ownerId]
+    );
+
+    return rows[0] ?? null;
+  },
+
   async updateStatusByIdAndSitterId(sitterId, bookingId, status) {
     const { rows } = await connectionPool.query(
       `
@@ -184,6 +318,173 @@ export const bookingsRepository = {
       [bookingId, sitterId, status]
     );
 
+    return rows[0] ?? null;
+  },
+
+  // owner booking — สร้าง booking + pets + payment ใน transaction เดียว
+  async createBookingWithPets({
+    ownerId,
+    sitterId,
+    bookingDate,
+    startTime,
+    endTime,
+    durationHours,
+    contactName,
+    contactEmail,
+    contactPhone,
+    additionalMessage,
+    totalPrice,
+    petIds,
+  }) {
+    const client = await connectionPool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const { rows: bookingRows } = await client.query(
+        `
+        INSERT INTO bookings (
+          owner_id,
+          sitter_id,
+          start_date,
+          end_date,
+          start_time,
+          end_time,
+          duration_hours,
+          contact_name,
+          contact_email,
+          contact_phone,
+          additional_message,
+          total_price,
+          status
+        )
+        VALUES (
+          $1, $2, $3::date, $3::date, $4::time, $5::time, $6,
+          $7, $8, $9, $10, $11, 'waiting_confirm'
+        )
+        RETURNING id, status, total_price
+        `,
+        [
+          ownerId,
+          sitterId,
+          bookingDate,
+          startTime,
+          endTime,
+          durationHours,
+          contactName,
+          contactEmail,
+          contactPhone,
+          additionalMessage,
+          totalPrice,
+        ]
+      );
+
+      const booking = bookingRows[0];
+
+      for (const petId of petIds) {
+        await client.query(
+          `
+          INSERT INTO booking_pets (booking_id, pet_id)
+          VALUES ($1, $2)
+          `,
+          [booking.id, petId]
+        );
+      }
+
+      const { rows: paymentRows } = await client.query(
+        `
+        INSERT INTO payments (booking_id, amount, status)
+        VALUES ($1, $2, 'pending')
+        RETURNING status
+        `,
+        [booking.id, totalPrice]
+      );
+
+      await client.query("COMMIT");
+
+      return {
+        bookingId: booking.id,
+        status: booking.status,
+        totalPrice: Number(booking.total_price),
+        paymentStatus: paymentRows[0].status,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async updatePaymentTokenByBookingId(bookingId, paymentToken) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET payment_token = $2
+      WHERE booking_id = $1
+      RETURNING status, payment_token
+      `,
+      [bookingId, paymentToken]
+    );
+    return rows[0] ?? null;
+  },
+
+  async findBusySlotsBySitterId(sitterId) {
+    const { rows } = await connectionPool.query(
+      `
+      SELECT
+        to_char(start_date, 'YYYY-MM-DD') AS start_date,
+        to_char(COALESCE(end_date, start_date), 'YYYY-MM-DD') AS end_date,
+        to_char(start_time, 'HH24:MI') AS start_time,
+        to_char(end_time, 'HH24:MI') AS end_time
+      FROM bookings
+      WHERE sitter_id = $1
+        AND status IN ('waiting_confirm', 'waiting_service', 'in_service')
+        AND COALESCE(end_date, start_date) >= CURRENT_DATE
+      ORDER BY start_date, start_time
+      `,
+      [sitterId]
+    );
+
+    return rows.map((row) => ({
+      startDate: row.start_date,
+      endDate: row.end_date,
+      startTime: row.start_time,
+      endTime: row.end_time,
+    }));
+  },
+
+  async hasOverlappingBooking({ sitterId, date, startTime, endTime }) {
+    const { rows } = await connectionPool.query(
+      `
+      SELECT id
+      FROM bookings
+      WHERE sitter_id = $1
+        AND status IN ('waiting_confirm', 'waiting_service', 'in_service')
+        AND (start_date + start_time) < ($2::date + $4::time)
+        AND (COALESCE(end_date, start_date) + end_time) > ($2::date + $3::time)
+      LIMIT 1
+      `,
+      [sitterId, date, startTime, endTime]
+    );
+
+    return Boolean(rows[0]);
+  },
+
+  async updatePaymentStatusByToken(paymentToken, status, paidAt = null) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET status = $2::varchar,
+          paid_at = CASE
+            WHEN $2::text = 'paid' THEN COALESCE($3::timestamptz, NOW())
+            ELSE paid_at
+          END
+      WHERE payment_token = $1
+      RETURNING booking_id, status, paid_at
+      `,
+      [paymentToken, status, paidAt]
+    );
     return rows[0] ?? null;
   },
 };
