@@ -54,6 +54,41 @@ export const sittersController = {
     }
   },
 
+  async getReviews(req, res, next) {
+    try {
+      const rating = req.query.rating ? Number(req.query.rating) : null;
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 5;
+      const result = await sittersService.getReviews(req.params.id, {
+        rating: Number.isInteger(rating) ? rating : null,
+        page,
+        limit,
+      });
+
+      return res.status(200).json({
+        data: result.rows,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          totalPages: Math.ceil(result.total / result.limit) || 0,
+        },
+        summary: result.summary,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getAvailability(req, res, next) {
+    try {
+      const slots = await sittersService.getAvailability(req.params.id);
+      return res.status(200).json({ data: slots });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getMyProfile(req, res, next) {
     try {
       const profile = await sittersService.getProfileByUserId(req.user.id);

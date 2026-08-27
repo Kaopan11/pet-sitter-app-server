@@ -1,5 +1,7 @@
 import { sitterProfileMeRepository } from "../repositories/sitterProfileMe.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
+import { reviewsRepository } from "../repositories/reviews.repository.mjs";
+import { bookingsRepository } from "../repositories/bookings.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import { validateSitterProfileBody } from "../utils/validateSitterProfile.mjs";
 import supabase from "../repositories/supabase.mjs";
@@ -56,6 +58,53 @@ export const sittersService = {
     }
 
     return sitter;
+  },
+
+  async getReviews(id, { rating = null, page = 1, limit = 5 } = {}) {
+    const isUuid =
+      typeof id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id
+      );
+
+    if (!isUuid) {
+      throw httpError(404, "Sitter profile not found");
+    }
+
+    const profile = await sitterProfilesRepository.findByUserId(id);
+
+    if (!profile) {
+      throw httpError(404, "Sitter profile not found");
+    }
+
+    const pageSize = Math.min(Math.max(Number(limit) || 5, 1), 50);
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const offset = (currentPage - 1) * pageSize;
+    const ratingFilter =
+      Number.isInteger(rating) && rating >= 1 && rating <= 5 ? rating : null;
+
+    const [result, summary] = await Promise.all([
+      reviewsRepository.findBySitterId({
+        sitterId: id,
+        rating: ratingFilter,
+        pageSize,
+        offset,
+      }),
+      reviewsRepository.getSummary(id),
+    ]);
+
+    return {
+      rows: result.rows,
+      total: result.total,
+      page: currentPage,
+      limit: pageSize,
+      summary,
+    };
+  },
+
+  async getAvailability(id) {
+    await this.getPublicById(id);
+    return bookingsRepository.findBusySlotsBySitterId(id);
   },
 
   async updateMyProfile(userId, { body, avatarFile, galleryFiles }) {

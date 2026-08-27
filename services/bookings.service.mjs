@@ -227,6 +227,19 @@ export const bookingsService = {
       throw httpError(400, "Owner phone is required to book");
     }
 
+    const overlapping = await bookingsRepository.hasOverlappingBooking({
+      sitterId,
+      date: date.trim(),
+      startTime,
+      endTime,
+    });
+    if (overlapping) {
+      throw httpError(
+        409,
+        "This date and time is already booked. Please choose another slot."
+      );
+    }
+
     const additionalMessage =
       typeof message === "string" && message.trim()
         ? message.trim()
