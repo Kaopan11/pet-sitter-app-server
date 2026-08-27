@@ -124,7 +124,7 @@ export const petsService = {
   },
 
   async createPet(userId, body, imageFile) {
-    const pet = await normalizePetBody(body);
+    const pet = await normalizePetBody(body); // สร้าง pet object จาก body
 
     if (imageFile) {
       pet.avatar_url = await uploadImageFile(imageFile, "pets", userId);
