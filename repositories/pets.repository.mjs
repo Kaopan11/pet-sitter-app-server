@@ -131,4 +131,12 @@ export const petsRepository = {
     );
     return rows[0] ?? null;
   },
+  //check if the pet is book, cannot delete while sitter is booked for the pet
+  async isUsedInBooking(petId) {
+    const { rowCount } = await pool.query(
+      `SELECT 1 FROM public.booking_pets WHERE pet_id = $1 LIMIT 1`,
+      [petId]
+    );
+    return rowCount > 0;
+  },
 };

@@ -150,6 +150,15 @@ export const petsService = {
 
   async deletePet(userId, petId) {
     const current = await this.getPetById(userId, petId);
+   //fetch pet by id
+    const used = await petsRepository.isUsedInBooking(current.id); //checked if pet is booked
+    if (used) {
+      throw httpError( //if pet is booked, cannot delete
+        400,
+        "This pet cannot be deleted because it is used in a booking"
+      );
+    }
+    //delete pet
     const deleted = await petsRepository.deleteById(current.id, userId);
     if (!deleted) throw httpError(404, "Pet not found");
     return deleted;
