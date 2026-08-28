@@ -19,6 +19,8 @@ const ALLOWED_TRANSITIONS = {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAYMENT_METHODS = new Set(["cash", "stripe"]);
+// Ticket #01: one-day hourly — unit lock กับ DB constraint ('hours' | 'Day')
+const DURATION_UNIT_HOURS = "hours";
 
 function normalizePetIds(petIds) {
   if (!Array.isArray(petIds) || petIds.length === 0) {
@@ -195,8 +197,9 @@ export const bookingsService = {
     }
 
     const petIds = normalizePetIds(rawPetIds);
-    const durationHours = resolveDurationHours(startTime, endTime);
-    const totalPrice = calculateBookingTotal(durationHours, petIds.length);
+    // one-day: duration = จำนวนชั่วโมงจากเวลา (many-days จะใช้ Day ใน ticket #03)
+    const duration = resolveDurationHours(startTime, endTime);
+    const totalPrice = calculateBookingTotal(duration, petIds.length);
 
     const sitter = await sitterProfilesRepository.findPublicById(sitterId);
     if (!sitter) {
@@ -251,7 +254,8 @@ export const bookingsService = {
       bookingDate: date.trim(),
       startTime,
       endTime,
-      durationHours,
+      duration,
+      durationUnit: DURATION_UNIT_HOURS,
       contactName: (owner.name && String(owner.name).trim()) || owner.email,
       contactEmail: owner.email,
       contactPhone: owner.phone,
