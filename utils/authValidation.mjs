@@ -59,16 +59,20 @@ export function parsePhone(phone) {
   return { ok: true, value: digits };
 }
 
-/** รหัสผ่านอย่างน้อย 6 ตัว — ใช้กับ register และ reset-password */
+/**
+ * รหัสผ่านต้องมากกว่า 8 ตัว (9 ตัวขึ้นไปผ่าน) — lock กับ FE Register + Reset password
+ * ใช้ร่วม register (validateRegister) และ reset-password (validateResetPassword + service)
+ */
 export function parsePassword(password) {
   if (!password) {
     return { ok: false, message: "Password is required" };
   }
 
-  if (String(password).length < 6) {
+  // length <= 8 ไม่ผ่าน — ตรงกับ FE validatePassword
+  if (String(password).length <= 8) {
     return {
       ok: false,
-      message: "Password must be at least 6 characters",
+      message: "Password must be more than 8 characters",
     };
   }
 
