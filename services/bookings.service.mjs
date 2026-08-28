@@ -3,9 +3,9 @@ import { petsRepository } from "../repositories/pets.repository.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 import { getStripe } from "../repositories/stripe.mjs";
 import {
-  calculateBookingTotal,
-  resolveDurationHours,
-} from "../utils/bookingPricing.mjs";
+  resolveBookingDateRange,
+  resolveBookingPricing,
+} from "./bookingsCreate.mjs";
 import { toStripeAmount } from "../utils/stripeAmount.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { reportsRepository } from "../repositories/reports.repository.mjs";
@@ -17,7 +17,6 @@ const ALLOWED_TRANSITIONS = {
   in_service: ["success"],
 };
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PAYMENT_METHODS = new Set(["cash", "stripe"]);
 
 function normalizePetIds(petIds) {
@@ -170,7 +169,6 @@ export const bookingsService = {
   async createBooking(owner, body) {
     const {
       sitterId,
-      date,
       startTime,
       endTime,
       petIds: rawPetIds,
@@ -186,17 +184,20 @@ export const bookingsService = {
       throw httpError(400, "sitterId is required");
     }
 
-    if (typeof date !== "string" || !DATE_RE.test(date.trim())) {
-      throw httpError(400, "Invalid date format");
-    }
+    const { startDate, endDate } = resolveBookingDateRange(body);
 
     if (owner.id === sitterId) {
       throw httpError(400, "You cannot book yourself");
     }
 
     const petIds = normalizePetIds(rawPetIds);
-    const durationHours = resolveDurationHours(startTime, endTime);
-    const totalPrice = calculateBookingTotal(durationHours, petIds.length);
+    const { duration, durationUnit, totalPrice } = resolveBookingPricing({
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      petCount: petIds.length,
+    });
 
     const sitter = await sitterProfilesRepository.findPublicById(sitterId);
     if (!sitter) {
@@ -229,7 +230,8 @@ export const bookingsService = {
 
     const overlapping = await bookingsRepository.hasOverlappingBooking({
       sitterId,
-      date: date.trim(),
+      startDate,
+      endDate,
       startTime,
       endTime,
     });
@@ -248,10 +250,12 @@ export const bookingsService = {
     const created = await bookingsRepository.createBookingWithPets({
       ownerId: owner.id,
       sitterId,
-      bookingDate: date.trim(),
+      startDate,
+      endDate,
       startTime,
       endTime,
-      durationHours,
+      duration,
+      durationUnit,
       contactName: (owner.name && String(owner.name).trim()) || owner.email,
       contactEmail: owner.email,
       contactPhone: owner.phone,

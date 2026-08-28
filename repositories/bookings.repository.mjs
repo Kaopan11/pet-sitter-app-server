@@ -7,7 +7,8 @@ export const bookingsRepository = {
         bookings.id,
         users.name AS pet_owner_name,
         COUNT(booking_pets.pet_id)::int AS pet_count,
-        bookings.duration_hours,
+        bookings.duration,
+        bookings.duration_unit,
         bookings.start_date,
         bookings.start_time,
         bookings.end_time,
@@ -126,7 +127,8 @@ export const bookingsRepository = {
           FROM booking_pets
           WHERE booking_pets.booking_id = bookings.id
         ) AS pet_count,
-        bookings.duration_hours,
+        bookings.duration,
+        bookings.duration_unit,
         bookings.start_date,
         bookings.start_time,
         bookings.end_time,
@@ -193,7 +195,8 @@ export const bookingsRepository = {
         COALESCE(sitter_profiles.display_name, sitter_users.name) AS sitter_name,
         sitter_users.avatar_url AS sitter_avatar_url,
         STRING_AGG(pets.name, ', ' ORDER BY pets.name) AS pet_names,
-        bookings.duration_hours,
+        bookings.duration,
+        bookings.duration_unit,
         bookings.start_date,
         bookings.start_time,
         bookings.end_time,
@@ -248,7 +251,8 @@ export const bookingsRepository = {
           FROM booking_pets
           WHERE booking_pets.booking_id = bookings.id
         ) AS pet_count,
-        bookings.duration_hours,
+        bookings.duration,
+        bookings.duration_unit,
         bookings.start_date,
         bookings.start_time,
         bookings.end_time,
@@ -325,10 +329,12 @@ export const bookingsRepository = {
   async createBookingWithPets({
     ownerId,
     sitterId,
-    bookingDate,
+    startDate,
+    endDate,
     startTime,
     endTime,
-    durationHours,
+    duration,
+    durationUnit,
     contactName,
     contactEmail,
     contactPhone,
@@ -350,7 +356,8 @@ export const bookingsRepository = {
           end_date,
           start_time,
           end_time,
-          duration_hours,
+          duration,
+          duration_unit,
           contact_name,
           contact_email,
           contact_phone,
@@ -359,18 +366,20 @@ export const bookingsRepository = {
           status
         )
         VALUES (
-          $1, $2, $3::date, $3::date, $4::time, $5::time, $6,
-          $7, $8, $9, $10, $11, 'waiting_confirm'
+          $1, $2, $3::date, $4::date, $5::time, $6::time, $7, $8,
+          $9, $10, $11, $12, $13, 'waiting_confirm'
         )
         RETURNING id, status, total_price
         `,
         [
           ownerId,
           sitterId,
-          bookingDate,
+          startDate,
+          endDate,
           startTime,
           endTime,
-          durationHours,
+          duration,
+          durationUnit,
           contactName,
           contactEmail,
           contactPhone,
@@ -454,18 +463,25 @@ export const bookingsRepository = {
     }));
   },
 
-  async hasOverlappingBooking({ sitterId, date, startTime, endTime }) {
+  // เช็คช่วงทับซ้อน: ขอจองใหม่ vs booking ที่ active อยู่แล้ว
+  async hasOverlappingBooking({
+    sitterId,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+  }) {
     const { rows } = await connectionPool.query(
       `
       SELECT id
       FROM bookings
       WHERE sitter_id = $1
         AND status IN ('waiting_confirm', 'waiting_service', 'in_service')
-        AND (start_date + start_time) < ($2::date + $4::time)
-        AND (COALESCE(end_date, start_date) + end_time) > ($2::date + $3::time)
+        AND (start_date + start_time) < ($3::date + $5::time)
+        AND (COALESCE(end_date, start_date) + end_time) > ($2::date + $4::time)
       LIMIT 1
       `,
-      [sitterId, date, startTime, endTime]
+      [sitterId, startDate, endDate, startTime, endTime]
     );
 
     return Boolean(rows[0]);
