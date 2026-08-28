@@ -91,10 +91,11 @@ describe("parsePhone", () => {
 });
 
 describe("parsePassword", () => {
-  it("accepts passwords with at least 6 characters", () => {
-    assert.deepEqual(parsePassword("secret"), {
+  // กฎ lock กับ FE: มากกว่า 8 ตัว (9 ตัวขึ้นไปผ่าน)
+  it("accepts passwords with more than 8 characters", () => {
+    assert.deepEqual(parsePassword("123456789"), {
       ok: true,
-      value: "secret",
+      value: "123456789",
     });
   });
 
@@ -105,10 +106,17 @@ describe("parsePassword", () => {
     });
   });
 
-  it("rejects passwords shorter than 6 characters", () => {
-    assert.deepEqual(parsePassword("12345"), {
+  it("rejects passwords with exactly 8 characters", () => {
+    assert.deepEqual(parsePassword("12345678"), {
       ok: false,
-      message: "Password must be at least 6 characters",
+      message: "Password must be more than 8 characters",
+    });
+  });
+
+  it("rejects passwords with 8 or fewer characters", () => {
+    assert.deepEqual(parsePassword("1234567"), {
+      ok: false,
+      message: "Password must be more than 8 characters",
     });
   });
 });
