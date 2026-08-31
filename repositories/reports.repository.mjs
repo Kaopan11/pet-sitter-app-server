@@ -49,4 +49,16 @@ export const reportsRepository = {
     );
     return rows[0] ?? null;
   },
+
+  async updateStatus(id, status) {
+    const { rows } = await connectionPool.query(
+      `UPDATE reports
+       SET status = $1
+       WHERE id = $2
+       RETURNING id`,
+      [status, id]
+    );
+    if (!rows[0]) return null;
+    return this.findById(id);
+  },
 };
