@@ -329,6 +329,22 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  async updateStatusByIdAndOwnerId(ownerId, bookingId, status) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE bookings
+      SET status = $3,
+          updated_at = NOW()
+      WHERE id = $1
+        AND owner_id = $2
+      RETURNING id, status
+      `,
+      [bookingId, ownerId, status]
+    );
+
+    return rows[0] ?? null;
+  },
+
   // owner booking — สร้าง booking + pets + payment ใน transaction เดียว
   async createBookingWithPets({
     ownerId,

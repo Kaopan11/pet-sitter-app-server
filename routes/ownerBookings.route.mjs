@@ -15,6 +15,11 @@ ownerBookingsRouter.get(
   bookingsController.getOwnerBookingById
 );
 ownerBookingsRouter.post(
+  "/owner/:id/cancel",
+  requireAuth,
+  bookingsController.cancelOwnerBooking
+);
+ownerBookingsRouter.post(
   "/owner/:id/review",
   requireAuth,
   bookingsController.submitOwnerReview
