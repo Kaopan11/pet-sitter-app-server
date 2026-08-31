@@ -10,6 +10,7 @@ export const bookingsRepository = {
         bookings.duration,
         bookings.duration_unit,
         bookings.start_date,
+        bookings.end_date,
         bookings.start_time,
         bookings.end_time,
         bookings.status
@@ -130,6 +131,7 @@ export const bookingsRepository = {
         bookings.duration,
         bookings.duration_unit,
         bookings.start_date,
+        bookings.end_date,
         bookings.start_time,
         bookings.end_time,
         bookings.total_price,
@@ -198,6 +200,7 @@ export const bookingsRepository = {
         bookings.duration,
         bookings.duration_unit,
         bookings.start_date,
+        bookings.end_date,
         bookings.start_time,
         bookings.end_time,
         bookings.total_price,
@@ -254,6 +257,7 @@ export const bookingsRepository = {
         bookings.duration,
         bookings.duration_unit,
         bookings.start_date,
+        bookings.end_date,
         bookings.start_time,
         bookings.end_time,
         bookings.total_price,
@@ -463,7 +467,7 @@ export const bookingsRepository = {
     }));
   },
 
-  // เช็คช่วงทับซ้อน: ขอจองใหม่ vs booking ที่ active อยู่แล้ว
+  // Ticket B — many-days เทียบช่วงวัน · one-day เทียบ datetime บนวันเดียวกัน
   async hasOverlappingBooking({
     sitterId,
     startDate,
@@ -477,8 +481,26 @@ export const bookingsRepository = {
       FROM bookings
       WHERE sitter_id = $1
         AND status IN ('waiting_confirm', 'waiting_service', 'in_service')
-        AND (start_date + start_time) < ($3::date + $5::time)
-        AND (COALESCE(end_date, start_date) + end_time) > ($2::date + $4::time)
+        AND (
+          (
+            COALESCE(end_date, start_date) > start_date
+            AND start_date < $3::date
+            AND COALESCE(end_date, start_date) > $2::date
+          )
+          OR (
+            $3::date > $2::date
+            AND start_date = COALESCE(end_date, start_date)
+            AND start_date >= $2::date
+            AND start_date < $3::date
+          )
+          OR (
+            start_date = COALESCE(end_date, start_date)
+            AND $2::date = $3::date
+            AND start_date = $2::date
+            AND (start_date + start_time) < ($3::date + $5::time)
+            AND (start_date + end_time) > ($2::date + $4::time)
+          )
+        )
       LIMIT 1
       `,
       [sitterId, startDate, endDate, startTime, endTime]

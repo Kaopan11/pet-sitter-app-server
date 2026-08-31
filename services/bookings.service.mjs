@@ -5,6 +5,7 @@ import { getStripe } from "../repositories/stripe.mjs";
 import {
   resolveBookingDateRange,
   resolveBookingPricing,
+  resolveBookingTimes,
 } from "./bookingsCreate.mjs";
 import { toStripeAmount } from "../utils/stripeAmount.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
@@ -169,8 +170,6 @@ export const bookingsService = {
   async createBooking(owner, body) {
     const {
       sitterId,
-      startTime,
-      endTime,
       petIds: rawPetIds,
       message,
       paymentMethod,
@@ -185,6 +184,12 @@ export const bookingsService = {
     }
 
     const { startDate, endDate } = resolveBookingDateRange(body);
+    const { startTime, endTime } = resolveBookingTimes({
+      startDate,
+      endDate,
+      startTime: body?.startTime,
+      endTime: body?.endTime,
+    });
 
     if (owner.id === sitterId) {
       throw httpError(400, "You cannot book yourself");
