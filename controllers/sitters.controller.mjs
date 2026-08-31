@@ -110,13 +110,4 @@ export const sittersController = {
       next(error);
     }
   },
-
-  async deleteMyPhoto(req, res, next) {
-    try {
-      await sittersService.deleteMyPhoto(req.user.id, req.params.photoId);
-      return res.status(200).json({ message: "Photo deleted successfully" });
-    } catch (error) {
-      next(error);
-    }
-  },
 };

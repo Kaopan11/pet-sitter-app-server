@@ -73,7 +73,7 @@ export const requireSitter = async (req, res, next) => {
   try {
     const sitter = await sitterProfilesRepository.findByUserId(req.user.id);
     if (!sitter) {
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json({ message: "Forbidden: You are not a sitter" });
     }
 
     req.sitter = sitter;
@@ -81,4 +81,13 @@ export const requireSitter = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+// ใช้ต่อจาก requireAuth — users.is_admin ต้องเป็น true
+export const requireAdmin = (req, res, next) => {
+  if (!req.user?.is_admin) {
+    return res.status(403).json({ message: "Forbidden: You are not an admin" });
+  }
+
+  next();
 };
