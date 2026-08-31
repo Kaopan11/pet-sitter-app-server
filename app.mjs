@@ -9,6 +9,7 @@ import petsRouter from "./routes/pets.route.mjs";
 import chatRouter from "./routes/chat.route.mjs";
 import ownerBookingsRouter from "./routes/ownerBookings.route.mjs";
 import stripeWebhookRouter from "./routes/stripeWebhook.route.mjs";
+import reportsRouter from "./routes/reports.rout.mjs";
 import { startChatListener } from "./services/chatEvents.mjs";
 
 const app = express();
@@ -43,6 +44,7 @@ app.use("/api/admin", adminRouter); // admin panel
 app.use("/api/pets", petsRouter); // pet list + profile
 app.use("/api/conversations", chatRouter); // owner–sitter chat
 app.use("/api/bookings", ownerBookingsRouter); // owner booking history + create (cash | stripe)
+app.use("/api/reports", reportsRouter); //use for admin get report
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "API is working" });

@@ -11,4 +11,42 @@ export const reportsRepository = {
 
     return rows[0];
   },
+
+  async findMany() {
+    const { rows } = await connectionPool.query(
+      `SELECT
+         reports.id,
+         reports.booking_id,
+         reports.reporter_id,
+         users.name AS reporter_name,
+         reports.issue AS subject,
+         reports.description,
+         reports.status,
+         reports.created_at
+       FROM reports
+       INNER JOIN users ON users.id = reports.reporter_id
+       ORDER BY reports.created_at DESC`
+    );
+    return rows;
+  },
+  
+  async findById(id) {
+    const { rows } = await connectionPool.query(
+      `SELECT
+         reports.id,
+         reports.booking_id,
+         reports.reporter_id,
+         users.name AS reporter_name,
+         reports.issue AS subject,
+         reports.description,
+         reports.status,
+         reports.created_at
+       FROM reports
+       INNER JOIN users ON users.id = reports.reporter_id
+       WHERE reports.id = $1
+       LIMIT 1`,
+      [id]
+    );
+    return rows[0] ?? null;
+  },
 };
