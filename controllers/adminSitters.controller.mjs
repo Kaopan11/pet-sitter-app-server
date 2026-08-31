@@ -32,4 +32,29 @@ export const adminSittersController = {
       next(error);
     }
   },
+
+  async getById(req, res, next) {
+    try {
+      const sitter = await adminSittersService.getById(req.params.id);
+
+      return res.status(200).json({ data: sitter });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateStatus(req, res, next) {
+    try {
+      await adminSittersService.updateStatus(
+        req.params.id,
+        req.body.approval_status
+      );
+
+      return res.status(200).json({
+        message: "Sitter approval status updated successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

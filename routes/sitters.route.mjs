@@ -18,12 +18,6 @@ sittersRouter.put(
   [uploadSitterImages, requireAuth, requireSitter],
   sittersController.updateMyProfile
 );
-sittersRouter.delete(
-  "/me/photos/:photoId",
-  requireAuth,
-  requireSitter,
-  sittersController.deleteMyPhoto
-);
 
 sittersRouter.use("/bookings", bookingsRouter);
 // ต้องวาง /me และ /bookings ก่อน /:id เพราะ Express อ่านบนลงล่าง

@@ -55,7 +55,7 @@ export const sitterProfilesRepository = {
       `INSERT INTO public.sitter_profiles (
          user_id, display_name, experience_years, rating_avg, review_count, approval_status
        )
-       VALUES ($1, $2, 0, 0, 0, 'Waiting for approve')
+       VALUES ($1, $2, 0, 0, 0, 'Unverified')
        RETURNING user_id, display_name, approval_status`,
       [userId, displayName]
     );

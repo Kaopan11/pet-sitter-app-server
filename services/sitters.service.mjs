@@ -3,7 +3,15 @@ import { sitterProfilesRepository } from "../repositories/sitterProfiles.reposit
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { bookingsRepository } from "../repositories/bookings.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
-import { validateSitterProfileBody } from "../utils/validateSitterProfile.mjs";
+import {
+  validateSitterBasicBody,
+  validateSitterProfileBody,
+} from "../utils/validateSitterProfile.mjs";
+import {
+  isFullProfileUnlocked,
+  nextStatusAfterUpdate,
+  overlayPending,
+} from "../utils/pendingProfile.mjs";
 import supabase from "../repositories/supabase.mjs";
 
 const PHOTOS_BUCKET = "photos";
@@ -29,6 +37,28 @@ async function uploadImageFile(file, folder, userId) {
   return publicUrl;
 }
 
+function parseExistingGallery(raw, livePhotos) {
+  if (raw == null || raw === "") {
+    return (livePhotos ?? []).map((photo) => ({
+      id: photo.id,
+      photo_url: photo.photo_url,
+    }));
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((photo) => photo?.photo_url)
+      .map((photo) => ({
+        id: photo.id,
+        photo_url: photo.photo_url,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export const sittersService = {
   async getProfileByUserId(userId) {
     const profile = await sitterProfileMeRepository.findByUserId(userId);
@@ -37,7 +67,7 @@ export const sittersService = {
       throw httpError(404, "Sitter profile not found");
     }
 
-    return profile;
+    return overlayPending(profile);
   },
 
   async getPublicById(id) {
@@ -114,10 +144,23 @@ export const sittersService = {
       throw httpError(404, "Sitter profile not found");
     }
 
-    validateSitterProfileBody(body);
+    const fullProfileUnlocked = isFullProfileUnlocked(profile.approval_status);
 
-    const existingCount = (profile.sitter_photos ?? []).length;
-    if (existingCount + galleryFiles.length > 10) {
+    if (fullProfileUnlocked) {
+      validateSitterProfileBody(body);
+    } else {
+      validateSitterBasicBody(body);
+    }
+
+    const existingGallery = fullProfileUnlocked
+      ? parseExistingGallery(
+          body.existing_gallery,
+          profile.pending_profile?.photos ?? profile.sitter_photos
+        )
+      : [];
+    const newGalleryFiles = fullProfileUnlocked ? galleryFiles ?? [] : [];
+
+    if (existingGallery.length + newGalleryFiles.length > 10) {
       throw httpError(400, "Image gallery allows a maximum of 10 images");
     }
 
@@ -131,83 +174,58 @@ export const sittersService = {
       throw httpError(400, "Email is already in use");
     }
 
-    const userUpdate = {
-      name: body.name,
+    let avatarUrl = profile.pending_profile?.avatar_url ?? profile.avatar_url;
+    if (avatarFile) {
+      avatarUrl = await uploadImageFile(avatarFile, "avatar", userId);
+    }
+
+    const pending = {
+      ...(profile.pending_profile ?? {}),
+      full_name: String(body.name).trim(),
       email,
-      phone: body.phone,
-      dateOfBirth: body.date_of_birth,
-      idNumber: body.id_number,
+      phone,
+      id_number: String(body.id_number).trim(),
+      date_of_birth: String(body.date_of_birth).trim(),
+      avatar_url: avatarUrl,
+      experience_years: String(body.experience_years).trim(),
+      introduction: String(body.introduction ?? "").trim(),
     };
 
-    if (avatarFile) {
-      userUpdate.avatarUrl = await uploadImageFile(avatarFile, "avatar", userId);
-    }
+    if (fullProfileUnlocked) {
+      const petTypes = []
+        .concat(body.pet_types ?? [])
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+      if (petTypes.length === 0) {
+        throw httpError(400, "Pet type is required");
+      }
 
-    await sitterProfileMeRepository.updateUser(userId, userUpdate);
+      const uploadedPhotos = [];
+      for (const file of newGalleryFiles) {
+        uploadedPhotos.push({
+          id: `pending-${Date.now()}-${uploadedPhotos.length}`,
+          photo_url: await uploadImageFile(file, "sitter_photos", userId),
+        });
+      }
 
-    if (email !== String(profile.email ?? "").toLowerCase()) {
-      const { error } = await supabase.auth.admin.updateUserById(userId, {
-        email,
+      Object.assign(pending, {
+        display_name: String(body.display_name).trim(),
+        pet_types: petTypes,
+        services: String(body.services ?? "").trim(),
+        my_place: String(body.my_place ?? "").trim(),
+        address_detail: String(body.address_detail).trim(),
+        district: String(body.district).trim(),
+        sub_district: String(body.sub_district).trim(),
+        province: String(body.province).trim(),
+        post_code: String(body.post_code).trim(),
+        photos: [...existingGallery, ...uploadedPhotos],
       });
-      if (error) {
-        throw httpError(400, "Email is already in use");
-      }
     }
 
-    await sitterProfileMeRepository.updateProfile(userId, {
-      display_name: body.display_name,
-      introduction: body.introduction,
-      my_place: body.my_place,
-      services: body.services,
-      experience_years: body.experience_years,
-      address_detail: body.address_detail,
-      district: body.district,
-      sub_district: body.sub_district,
-      province: body.province,
-      post_code: body.post_code,
-      latitude: body.latitude,
-      longitude: body.longitude,
-      bank_name: body.bank_name,
-      account_number: body.account_number,
-    });
-
-    const petTypes = [].concat(body.pet_types || []).filter(Boolean);
-    if (petTypes.length === 0) {
-      throw httpError(400, "Pet type is required");
-    }
-
-    const savedCount = await sitterProfileMeRepository.replacePetTypes(userId, petTypes);
-    if (savedCount === 0) {
-      throw httpError(400, "Pet type is invalid");
-    }
-
-    if (galleryFiles.length > 0) {
-      let sortOrder = await sitterProfileMeRepository.getNextPhotoSortOrder(userId);
-
-      for (const file of galleryFiles) {
-        const photoUrl = await uploadImageFile(file, "sitter_photos", userId);
-        await sitterProfileMeRepository.insertPhoto(userId, photoUrl, sortOrder);
-        sortOrder += 1;
-      }
-    }
-  },
-
-  async deleteMyPhoto(userId, photoId) {
-    const photo = await sitterProfileMeRepository.findPhotoById(userId, photoId);
-
-    if (!photo) {
-      throw httpError(404, "Photo not found");
-    }
-
-    await sitterProfileMeRepository.deletePhoto(userId, photoId);
-
-    const marker = `/object/public/${PHOTOS_BUCKET}/`;
-    const index = String(photo.photo_url).indexOf(marker);
-    if (index === -1) {
-      return;
-    }
-
-    const filePath = decodeURIComponent(photo.photo_url.slice(index + marker.length));
-    await supabase.storage.from(PHOTOS_BUCKET).remove([filePath]);
+    await sitterProfileMeRepository.savePending(
+      userId,
+      pending,
+      nextStatusAfterUpdate(profile.approval_status)
+    );
   },
 };

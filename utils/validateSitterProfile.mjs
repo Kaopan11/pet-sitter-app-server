@@ -3,7 +3,8 @@ import { httpError } from "./httpError.mjs";
 const EXPERIENCE_VALUES = new Set(["0-2", "3-5", "5+"]);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.com$/i;
 
-export function validateSitterProfileBody(body) {
+// validate แค่ข้อมูลพื้นฐานของ sitter (กล่อง 1)
+export function validateSitterBasicBody(body) {
   const name = String(body.name ?? "").trim();
   if (!name) {
     throw httpError(400, "Full name is required");
@@ -59,6 +60,11 @@ export function validateSitterProfileBody(body) {
   if (Number.isNaN(birthDate.getTime()) || birthDate > minBirthDate) {
     throw httpError(400, "Pet sitter must be at least 18 years old");
   }
+}
+
+// validate ข้อมูลทั้งหมดของ sitter (กล่อง 1-3)
+export function validateSitterProfileBody(body) {
+  validateSitterBasicBody(body);
 
   const displayName = String(body.display_name ?? "").trim();
   if (!displayName) {
