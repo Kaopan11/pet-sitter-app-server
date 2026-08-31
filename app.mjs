@@ -19,6 +19,9 @@ const PORT = process.env.PORT || 4000;
 // Frontend ที่อนุญาตให้เรียก API ได้
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
   "https://pet-sitter-app-client-khaki.vercel.app",
 ];
 

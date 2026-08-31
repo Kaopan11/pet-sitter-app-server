@@ -31,6 +31,8 @@ function toListItem(row) {
     petTypes: petTypes.map((type) => formatPetTypeName(type)).filter(Boolean),
     imageUrl: row.image_url,
     experience: row.experience,
+    latitude: row.latitude != null ? Number(row.latitude) : null,
+    longitude: row.longitude != null ? Number(row.longitude) : null,
   };
 }
 
@@ -120,6 +122,8 @@ export const sitterProfilesRepository = {
         concat_ws(', ', sitter_profiles.district, sitter_profiles.province) as location,
         round(coalesce(sitter_profiles.rating_avg, 0))::int as rating,
         sitter_profiles.experience_years as experience,
+        sitter_profiles.latitude,
+        sitter_profiles.longitude,
         (
           select sitter_photos.photo_url
           from sitter_photos
