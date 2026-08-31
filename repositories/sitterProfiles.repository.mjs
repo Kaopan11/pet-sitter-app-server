@@ -160,7 +160,8 @@ export const sitterProfilesRepository = {
           )
         ) and
         (sitter_profiles.rating_avg >= $3 or $3 is null) and
-        (sitter_profiles.experience_years = $4 or $4 is null)
+        (sitter_profiles.experience_years = $4 or $4 is null) and
+        lower(sitter_profiles.approval_status) = 'approved'
       order by sitter_profiles.rating_avg desc nulls last, sitter_profiles.display_name asc
       limit $5 offset $6
       `,
@@ -193,7 +194,8 @@ export const sitterProfilesRepository = {
           )
         ) and
         (sitter_profiles.rating_avg >= $3 or $3 is null) and
-        (sitter_profiles.experience_years = $4 or $4 is null)
+        (sitter_profiles.experience_years = $4 or $4 is null) and
+        lower(sitter_profiles.approval_status) = 'approved'
       `,
       [q, petTypes, rating, experience]
     );
@@ -261,6 +263,7 @@ export const sitterProfilesRepository = {
       inner join users
       on users.id = sitter_profiles.user_id
       where sitter_profiles.user_id = $1
+        and lower(sitter_profiles.approval_status) = 'approved'
       limit 1
       `,
       [id]
