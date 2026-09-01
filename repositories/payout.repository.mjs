@@ -1,9 +1,10 @@
 import connectionPool from "../utils/db.mjs";
 
-// T02 cash + T03 stripe — eligible earnings รวมใน query เดียว
+// T02/T03/T04 — eligible earnings · cancelled ไม่นับทุก channel
 const PAYOUT_ELIGIBLE_WHERE = `
   bookings.sitter_id = $1
   AND bookings.payment_method IS NOT NULL
+  AND bookings.status <> 'cancelled'
   AND payments.status = 'paid'
   AND (
     (
@@ -12,7 +13,6 @@ const PAYOUT_ELIGIBLE_WHERE = `
     )
     OR (
       bookings.payment_method = 'stripe'
-      AND bookings.status <> 'cancelled'
     )
   )
 `;

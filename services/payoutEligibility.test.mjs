@@ -110,6 +110,25 @@ describe("isPayoutEligible", () => {
       true
     );
   });
+
+  it("excludes cancelled bookings for every payment method", () => {
+    assert.equal(
+      isPayoutEligible({
+        paymentMethod: "cash",
+        bookingStatus: "cancelled",
+        paymentStatus: "paid",
+      }),
+      false
+    );
+    assert.equal(
+      isPayoutEligible({
+        paymentMethod: "stripe",
+        bookingStatus: "cancelled",
+        paymentStatus: "paid",
+      }),
+      false
+    );
+  });
 });
 
 describe("shouldCaptureStripeOnConfirm", () => {

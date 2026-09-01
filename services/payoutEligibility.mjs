@@ -30,6 +30,10 @@ export function isStripePayoutEligible({
 }
 
 export function isPayoutEligible(row) {
+  if (row.bookingStatus === "cancelled" || row.status === "cancelled") {
+    return false;
+  }
+
   return (
     isCashPayoutEligible(row) ||
     isStripePayoutEligible(row)

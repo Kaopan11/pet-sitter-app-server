@@ -1,38 +1,24 @@
 import { payoutRepository } from "../repositories/payout.repository.mjs";
-import { mapPayoutTransaction } from "./payoutEligibility.mjs";
-
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
-
-function parsePagination(query) {
-  const page = Math.max(1, Number(query?.page) || 1);
-  const limit = Math.min(
-    MAX_LIMIT,
-    Math.max(1, Number(query?.limit) || DEFAULT_LIMIT)
-  );
-  const offset = (page - 1) * limit;
-  return { page, limit, offset };
-}
+import { buildPayoutDashboard } from "./payoutDashboard.mjs";
+import { parsePayoutPagination } from "../utils/payoutPagination.mjs";
 
 export const payoutService = {
-  /** T02/T03 — dashboard earnings cash + stripe (bankAccount มาใน T05) */
+  /** T04 — totalEarning = sum ทุก eligible · transactions = แค่หน้านั้น */
   async getMyPayout(sitterId, query) {
-    const { page, limit, offset } = parsePagination(query);
+    const { page, limit, offset } = parsePayoutPagination(query);
 
     const [totalEarning, { rows, totalItems }] = await Promise.all([
       payoutRepository.sumEarningsBySitterId(sitterId),
       payoutRepository.findEligibleTransactionsBySitterId(sitterId, limit, offset),
     ]);
 
-    return {
+    return buildPayoutDashboard({
       totalEarning,
+      rows,
+      totalItems,
+      page,
+      limit,
       bankAccount: null,
-      transactions: rows.map(mapPayoutTransaction),
-      pagination: {
-        page,
-        limit,
-        totalItems,
-      },
-    };
+    });
   },
 };
