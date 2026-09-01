@@ -12,7 +12,7 @@ import { runResolveOAuthSession } from "./oauthSession.mjs";
 import { runCompleteOAuthProfile } from "./oauthComplete.mjs";
 
 // รูป user ที่ส่งกลับ Frontend — ไม่มีรหัสผ่าน และไม่มี column role
-// isSitter ต้องส่งเสมอ — FE ใช้ redirect ไป /sitter/profile หรือ /
+// isSitter / isAdmin ต้องส่งเสมอ — FE ใช้ redirect ไป /sitter/profile, /admin, หรือ /
 function toAuthUser(profile, isSitter) {
   return {
     id: profile.id,
@@ -21,6 +21,7 @@ function toAuthUser(profile, isSitter) {
     name: profile.name ?? null,
     avatarUrl: profile.avatar_url ?? null,
     isSitter: Boolean(isSitter),
+    isAdmin: Boolean(profile.is_admin),
   };
 }
 
