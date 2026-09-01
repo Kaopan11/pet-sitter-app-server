@@ -1,5 +1,6 @@
 import { sittersService } from "../services/sitters.service.mjs";
 import { payoutService } from "../services/payout.service.mjs";
+import { payoutBankService } from "../services/payoutBank.service.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 
 export const sittersController = {
@@ -102,6 +103,39 @@ export const sittersController = {
   async getMyPayout(req, res, next) {
     try {
       const data = await payoutService.getMyPayout(req.user.id, req.query);
+      return res.status(200).json({ data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getMyPayoutBankAccount(req, res, next) {
+    try {
+      const data = await payoutBankService.getBankAccount(req.user.id);
+      return res.status(200).json({ data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateMyPayoutBankAccount(req, res, next) {
+    try {
+      const data = await payoutBankService.updateBankAccount(
+        req.user.id,
+        req.body
+      );
+      return res.status(200).json({ data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async uploadMyPayoutBookBankImage(req, res, next) {
+    try {
+      const data = await payoutBankService.uploadBookBankImage(
+        req.user.id,
+        req.file
+      );
       return res.status(200).json({ data });
     } catch (error) {
       next(error);
