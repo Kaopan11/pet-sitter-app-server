@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   isCashPayoutEligible,
+  isStripePayoutEligible,
+  isPayoutEligible,
   mapPayoutTransaction,
   shouldMarkCashPaidOnStatusChange,
+  shouldCaptureStripeOnConfirm,
+  shouldCancelStripePayment,
 } from "./payoutEligibility.mjs";
 
 describe("isCashPayoutEligible", () => {
@@ -40,7 +44,7 @@ describe("isCashPayoutEligible", () => {
     );
   });
 
-  it("is false for stripe in this ticket", () => {
+  it("is false for stripe in cash-only helper", () => {
     assert.equal(
       isCashPayoutEligible({
         paymentMethod: "stripe",
@@ -48,6 +52,96 @@ describe("isCashPayoutEligible", () => {
         paymentStatus: "paid",
       }),
       false
+    );
+  });
+});
+
+describe("isStripePayoutEligible", () => {
+  it("is true when stripe is paid and not cancelled", () => {
+    assert.equal(
+      isStripePayoutEligible({
+        paymentMethod: "stripe",
+        bookingStatus: "waiting_service",
+        paymentStatus: "paid",
+      }),
+      true
+    );
+  });
+
+  it("is false when booking is cancelled", () => {
+    assert.equal(
+      isStripePayoutEligible({
+        paymentMethod: "stripe",
+        bookingStatus: "cancelled",
+        paymentStatus: "paid",
+      }),
+      false
+    );
+  });
+
+  it("is false before capture/paid", () => {
+    assert.equal(
+      isStripePayoutEligible({
+        paymentMethod: "stripe",
+        bookingStatus: "waiting_confirm",
+        paymentStatus: "pending",
+      }),
+      false
+    );
+  });
+});
+
+describe("isPayoutEligible", () => {
+  it("accepts cash or stripe eligible rows", () => {
+    assert.equal(
+      isPayoutEligible({
+        paymentMethod: "cash",
+        bookingStatus: "in_service",
+        paymentStatus: "paid",
+      }),
+      true
+    );
+    assert.equal(
+      isPayoutEligible({
+        paymentMethod: "stripe",
+        bookingStatus: "waiting_confirm",
+        paymentStatus: "paid",
+      }),
+      true
+    );
+  });
+});
+
+describe("shouldCaptureStripeOnConfirm", () => {
+  it("captures when sitter confirms stripe booking", () => {
+    assert.equal(
+      shouldCaptureStripeOnConfirm({
+        paymentMethod: "stripe",
+        nextStatus: "waiting_service",
+      }),
+      true
+    );
+  });
+
+  it("does not capture on in_service", () => {
+    assert.equal(
+      shouldCaptureStripeOnConfirm({
+        paymentMethod: "stripe",
+        nextStatus: "in_service",
+      }),
+      false
+    );
+  });
+});
+
+describe("shouldCancelStripePayment", () => {
+  it("cancels PI when stripe booking is cancelled", () => {
+    assert.equal(
+      shouldCancelStripePayment({
+        paymentMethod: "stripe",
+        nextStatus: "cancelled",
+      }),
+      true
     );
   });
 });

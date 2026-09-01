@@ -15,13 +15,13 @@ function parsePagination(query) {
 }
 
 export const payoutService = {
-  /** T02 — dashboard cash earnings (bankAccount มาใน T05) */
+  /** T02/T03 — dashboard earnings cash + stripe (bankAccount มาใน T05) */
   async getMyPayout(sitterId, query) {
     const { page, limit, offset } = parsePagination(query);
 
     const [totalEarning, { rows, totalItems }] = await Promise.all([
-      payoutRepository.sumCashEarningsBySitterId(sitterId),
-      payoutRepository.findCashTransactionsBySitterId(sitterId, limit, offset),
+      payoutRepository.sumEarningsBySitterId(sitterId),
+      payoutRepository.findEligibleTransactionsBySitterId(sitterId, limit, offset),
     ]);
 
     return {

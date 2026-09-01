@@ -7,7 +7,15 @@ import {
   resolveBookingPricing,
   resolveBookingTimes,
 } from "./bookingsCreate.mjs";
-import { shouldMarkCashPaidOnStatusChange } from "./payoutEligibility.mjs";
+import {
+  shouldMarkCashPaidOnStatusChange,
+  shouldCaptureStripeOnConfirm,
+  shouldCancelStripePayment,
+} from "./payoutEligibility.mjs";
+import {
+  captureStripePaymentIntent,
+  cancelStripePaymentIntent,
+} from "./stripeBookingPayment.mjs";
 import { toStripeAmount } from "../utils/stripeAmount.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { reportsRepository } from "../repositories/reports.repository.mjs";
@@ -90,6 +98,26 @@ export const bookingsService = {
       throw httpError(400, "Invalid status transition");
     }
 
+    // T03 — cancel ก่อนเปลี่ยน status
+    if (
+      shouldCancelStripePayment({
+        paymentMethod: booking.payment_method,
+        nextStatus,
+      })
+    ) {
+      await cancelStripePaymentIntent(booking.payment_token);
+    }
+
+    // T03 — capture ก่อนเปลี่ยน status (fail แล้วไม่อัปเดต booking)
+    if (
+      shouldCaptureStripeOnConfirm({
+        paymentMethod: booking.payment_method,
+        nextStatus,
+      })
+    ) {
+      await captureStripePaymentIntent(booking.payment_token);
+    }
+
     const updated = await bookingsRepository.updateStatusByIdAndSitterId(
       sitterId,
       bookingId,
@@ -144,6 +172,15 @@ export const bookingsService = {
 
     if (booking.status !== "waiting_confirm") {
       throw httpError(400, "Can only cancel a booking that is waiting for confirmation");
+    }
+
+    if (
+      shouldCancelStripePayment({
+        paymentMethod: booking.payment_method,
+        nextStatus: "cancelled",
+      })
+    ) {
+      await cancelStripePaymentIntent(booking.payment_token);
     }
 
     return bookingsRepository.updateStatusByIdAndOwnerId(
@@ -309,6 +346,7 @@ export const bookingsService = {
     const paymentIntent = await getStripe().paymentIntents.create({
       amount: toStripeAmount(created.totalPrice),
       currency: "thb",
+      capture_method: "manual", // T03 — authorize ตอนจอง, capture ตอน sitter Confirm
       automatic_payment_methods: { enabled: true },
       metadata: { bookingId: String(created.bookingId) },
     });
