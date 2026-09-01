@@ -136,6 +136,9 @@ export const bookingsRepository = {
         bookings.end_time,
         bookings.total_price,
         bookings.transaction_no,
+        bookings.payment_method,
+        payments.status AS payment_status,
+        payments.payment_token,
         payments.paid_at AS transaction_date,
         bookings.additional_message,
         bookings.status,
@@ -262,6 +265,9 @@ export const bookingsRepository = {
         bookings.end_time,
         bookings.total_price,
         bookings.transaction_no,
+        bookings.payment_method,
+        payments.status AS payment_status,
+        payments.payment_token,
         payments.paid_at AS transaction_date,
         bookings.additional_message,
         bookings.status,
@@ -329,6 +335,23 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  // T02 — cash เข้า in_service → payments.paid
+  async markPaymentPaidByBookingId(bookingId) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET status = 'paid',
+          paid_at = COALESCE(paid_at, NOW())
+      WHERE booking_id = $1
+        AND status <> 'paid'
+      RETURNING status, paid_at
+      `,
+      [bookingId]
+    );
+
+    return rows[0] ?? null;
+  },
+
   async updateStatusByIdAndOwnerId(ownerId, bookingId, status) {
     const { rows } = await connectionPool.query(
       `
@@ -355,6 +378,7 @@ export const bookingsRepository = {
     endTime,
     duration,
     durationUnit,
+    paymentMethod,
     contactName,
     contactEmail,
     contactPhone,
@@ -367,6 +391,7 @@ export const bookingsRepository = {
     try {
       await client.query("BEGIN");
 
+      // T01 — payment_method จาก client + transaction_no จาก DB sequence
       const { rows: bookingRows } = await client.query(
         `
         INSERT INTO bookings (
@@ -378,6 +403,8 @@ export const bookingsRepository = {
           end_time,
           duration,
           duration_unit,
+          payment_method,
+          transaction_no,
           contact_name,
           contact_email,
           contact_phone,
@@ -387,9 +414,10 @@ export const bookingsRepository = {
         )
         VALUES (
           $1, $2, $3::date, $4::date, $5::time, $6::time, $7, $8,
-          $9, $10, $11, $12, $13, 'waiting_confirm'
+          $9, next_transaction_no(),
+          $10, $11, $12, $13, $14, 'waiting_confirm'
         )
-        RETURNING id, status, total_price
+        RETURNING id, status, total_price, transaction_no
         `,
         [
           ownerId,
@@ -400,6 +428,7 @@ export const bookingsRepository = {
           endTime,
           duration,
           durationUnit,
+          paymentMethod,
           contactName,
           contactEmail,
           contactPhone,
@@ -435,6 +464,7 @@ export const bookingsRepository = {
         bookingId: booking.id,
         status: booking.status,
         totalPrice: Number(booking.total_price),
+        transactionNo: booking.transaction_no,
         paymentStatus: paymentRows[0].status,
       };
     } catch (error) {

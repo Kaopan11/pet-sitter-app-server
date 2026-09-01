@@ -2,6 +2,7 @@ import { Router } from "express";
 import { sittersController } from "../controllers/sitters.controller.mjs";
 import { requireAuth, requireSitter } from "../middlewares/auth.middleware.mjs";
 import { uploadSitterImages } from "../middlewares/uploadSitterImages.mjs";
+import { uploadBookBankImage } from "../middlewares/uploadBookBankImage.mjs";
 import bookingsRouter from "./bookings.route.mjs";
 
 const sittersRouter = Router();
@@ -12,6 +13,29 @@ sittersRouter.get(
   requireAuth,
   requireSitter,
   sittersController.getMyProfile
+);
+sittersRouter.get(
+  "/me/payout",
+  requireAuth,
+  requireSitter,
+  sittersController.getMyPayout
+);
+sittersRouter.get(
+  "/me/payout/bank-account",
+  requireAuth,
+  requireSitter,
+  sittersController.getMyPayoutBankAccount
+);
+sittersRouter.put(
+  "/me/payout/bank-account",
+  requireAuth,
+  requireSitter,
+  sittersController.updateMyPayoutBankAccount
+);
+sittersRouter.post(
+  "/me/payout/book-bank-image",
+  [uploadBookBankImage, requireAuth, requireSitter],
+  sittersController.uploadMyPayoutBookBankImage
 );
 sittersRouter.put(
   "/me",
