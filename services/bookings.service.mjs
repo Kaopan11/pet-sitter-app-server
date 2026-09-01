@@ -282,6 +282,7 @@ export const bookingsService = {
       endTime,
       duration,
       durationUnit,
+      paymentMethod, // T01 — persist cash | stripe ลง bookings.payment_method
       contactName: (owner.name && String(owner.name).trim()) || owner.email,
       contactEmail: owner.email,
       contactPhone: owner.phone,

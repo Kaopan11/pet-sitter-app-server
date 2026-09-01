@@ -355,6 +355,7 @@ export const bookingsRepository = {
     endTime,
     duration,
     durationUnit,
+    paymentMethod,
     contactName,
     contactEmail,
     contactPhone,
@@ -367,6 +368,7 @@ export const bookingsRepository = {
     try {
       await client.query("BEGIN");
 
+      // T01 — payment_method จาก client + transaction_no จาก DB sequence
       const { rows: bookingRows } = await client.query(
         `
         INSERT INTO bookings (
@@ -378,6 +380,8 @@ export const bookingsRepository = {
           end_time,
           duration,
           duration_unit,
+          payment_method,
+          transaction_no,
           contact_name,
           contact_email,
           contact_phone,
@@ -387,9 +391,10 @@ export const bookingsRepository = {
         )
         VALUES (
           $1, $2, $3::date, $4::date, $5::time, $6::time, $7, $8,
-          $9, $10, $11, $12, $13, 'waiting_confirm'
+          $9, next_transaction_no(),
+          $10, $11, $12, $13, $14, 'waiting_confirm'
         )
-        RETURNING id, status, total_price
+        RETURNING id, status, total_price, transaction_no
         `,
         [
           ownerId,
@@ -400,6 +405,7 @@ export const bookingsRepository = {
           endTime,
           duration,
           durationUnit,
+          paymentMethod,
           contactName,
           contactEmail,
           contactPhone,
@@ -435,6 +441,7 @@ export const bookingsRepository = {
         bookingId: booking.id,
         status: booking.status,
         totalPrice: Number(booking.total_price),
+        transactionNo: booking.transaction_no,
         paymentStatus: paymentRows[0].status,
       };
     } catch (error) {
