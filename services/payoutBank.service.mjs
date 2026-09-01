@@ -25,6 +25,21 @@ function normalizeRequiredString(value, fieldName) {
   return value.trim();
 }
 
+/** T06 — validate PUT body แยกออกมาเทสได้ (ไม่แตะ DB) */
+export function parseBankAccountPutBody(body) {
+  const bank = resolveThaiBankByCode(body?.bankCode);
+  return {
+    bankCode: bank.code,
+    bankName: bank.name,
+    accountNumber: normalizeAccountNumber(body?.accountNumber),
+    accountName: normalizeRequiredString(body?.accountName, "accountName"),
+    bookBankImageUrl: normalizeRequiredString(
+      body?.bookBankImageUrl,
+      "bookBankImageUrl"
+    ),
+  };
+}
+
 /** T05 — map DB row → response (masked) หรือ null ถ้ายังไม่ตั้งบัญชี */
 export function mapBankAccountResponse(row) {
   if (!row?.account_number) {
@@ -54,20 +69,14 @@ export const payoutBankService = {
   },
 
   async updateBankAccount(sitterId, body) {
-    const bank = resolveThaiBankByCode(body?.bankCode);
-    const accountNumber = normalizeAccountNumber(body?.accountNumber);
-    const accountName = normalizeRequiredString(body?.accountName, "accountName");
-    const bookBankImageUrl = normalizeRequiredString(
-      body?.bookBankImageUrl,
-      "bookBankImageUrl"
-    );
+    const fields = parseBankAccountPutBody(body);
 
     const row = await payoutBankRepository.updateByUserId(sitterId, {
-      bankCode: bank.code,
-      bankName: bank.name,
-      accountNumber,
-      accountName,
-      bookBankImageUrl,
+      bankCode: fields.bankCode,
+      bankName: fields.bankName,
+      accountNumber: fields.accountNumber,
+      accountName: fields.accountName,
+      bookBankImageUrl: fields.bookBankImageUrl,
     });
 
     if (!row) {

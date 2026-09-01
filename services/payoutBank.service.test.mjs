@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mapBankAccountResponse } from "./payoutBank.service.mjs";
+import {
+  mapBankAccountResponse,
+  parseBankAccountPutBody,
+} from "./payoutBank.service.mjs";
 
 describe("mapBankAccountResponse", () => {
   it("returns null when account number is missing", () => {
