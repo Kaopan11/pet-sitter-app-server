@@ -121,6 +121,27 @@ export const bookingsService = {
     return booking;
   },
 
+  async cancelOwnerBooking(ownerId, bookingId) {
+    const booking = await bookingsRepository.findByIdAndOwnerId(
+      ownerId,
+      bookingId
+    );
+
+    if (!booking) {
+      throw httpError(404, "Booking not found");
+    }
+
+    if (booking.status !== "waiting_confirm") {
+      throw httpError(400, "Can only cancel a booking that is waiting for confirmation");
+    }
+
+    return bookingsRepository.updateStatusByIdAndOwnerId(
+      ownerId,
+      bookingId,
+      "cancelled"
+    );
+  },
+
   async submitReview(ownerId, bookingId, rating, text) {
     const booking = await bookingsRepository.findByIdAndOwnerId(
       ownerId,

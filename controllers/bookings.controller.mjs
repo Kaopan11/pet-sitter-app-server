@@ -97,6 +97,22 @@ export const bookingsController = {
     }
   },
 
+  async cancelOwnerBooking(req, res, next) {
+    try {
+      const cancelled = await bookingsService.cancelOwnerBooking(
+        req.user.id,
+        req.params.id
+      );
+
+      return res.status(200).json({
+        message: "Booking cancelled successfully",
+        data: cancelled,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async submitOwnerReview(req, res, next) {
     try {
       const { rating, text } = req.body;
