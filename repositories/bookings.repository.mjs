@@ -136,6 +136,8 @@ export const bookingsRepository = {
         bookings.end_time,
         bookings.total_price,
         bookings.transaction_no,
+        bookings.payment_method,
+        payments.status AS payment_status,
         payments.paid_at AS transaction_date,
         bookings.additional_message,
         bookings.status,
@@ -324,6 +326,23 @@ export const bookingsRepository = {
       RETURNING id, status
       `,
       [bookingId, sitterId, status]
+    );
+
+    return rows[0] ?? null;
+  },
+
+  // T02 — cash เข้า in_service → payments.paid
+  async markPaymentPaidByBookingId(bookingId) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE payments
+      SET status = 'paid',
+          paid_at = COALESCE(paid_at, NOW())
+      WHERE booking_id = $1
+        AND status <> 'paid'
+      RETURNING status, paid_at
+      `,
+      [bookingId]
     );
 
     return rows[0] ?? null;

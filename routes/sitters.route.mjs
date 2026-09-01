@@ -13,6 +13,12 @@ sittersRouter.get(
   requireSitter,
   sittersController.getMyProfile
 );
+sittersRouter.get(
+  "/me/payout",
+  requireAuth,
+  requireSitter,
+  sittersController.getMyPayout
+);
 sittersRouter.put(
   "/me",
   [uploadSitterImages, requireAuth, requireSitter],

@@ -7,6 +7,7 @@ import {
   resolveBookingPricing,
   resolveBookingTimes,
 } from "./bookingsCreate.mjs";
+import { shouldMarkCashPaidOnStatusChange } from "./payoutEligibility.mjs";
 import { toStripeAmount } from "../utils/stripeAmount.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { reportsRepository } from "../repositories/reports.repository.mjs";
@@ -94,6 +95,16 @@ export const bookingsService = {
       bookingId,
       nextStatus
     );
+
+    // T02 — cash + in_service → mark payments.paid (earnings eligible)
+    if (
+      shouldMarkCashPaidOnStatusChange({
+        paymentMethod: booking.payment_method,
+        nextStatus,
+      })
+    ) {
+      await bookingsRepository.markPaymentPaidByBookingId(bookingId);
+    }
 
     return updated;
   },

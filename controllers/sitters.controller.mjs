@@ -1,4 +1,5 @@
 import { sittersService } from "../services/sitters.service.mjs";
+import { payoutService } from "../services/payout.service.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 
 export const sittersController = {
@@ -93,6 +94,15 @@ export const sittersController = {
     try {
       const profile = await sittersService.getProfileByUserId(req.user.id);
       return res.status(200).json({ data: profile });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getMyPayout(req, res, next) {
+    try {
+      const data = await payoutService.getMyPayout(req.user.id, req.query);
+      return res.status(200).json({ data });
     } catch (error) {
       next(error);
     }
