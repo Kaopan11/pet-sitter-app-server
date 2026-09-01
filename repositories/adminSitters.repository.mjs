@@ -92,6 +92,7 @@ export const adminSittersRepository = {
         sitter_profiles.latitude,
         sitter_profiles.longitude,
         sitter_profiles.approval_status,
+        sitter_profiles.rejection_reason,
         sitter_profiles.is_listed,
         sitter_profiles.pending_profile,
         COALESCE(
@@ -152,18 +153,25 @@ export const adminSittersRepository = {
     );
   },
 
-  async updateStatus(sitterId, { approvalStatus, isListed, clearPending }) {
+  async updateStatus(sitterId, {
+    approvalStatus,
+    isListed,
+    clearPending,
+    rejectionReason,
+  }) {
+    // ถ้า clearPending = true ให้ล้าง pending ถ้า false เก็บของเดิม
     const { rows } = await connectionPool.query(
       `
       UPDATE sitter_profiles
       SET approval_status = $1,
-          is_listed = COALESCE($2, is_listed),
+          is_listed = $2,
           pending_profile = CASE WHEN $3 THEN NULL ELSE pending_profile END,
+          rejection_reason = $4,
           updated_at = NOW()
-      WHERE user_id = $4
-      RETURNING user_id AS id, approval_status, is_listed
+      WHERE user_id = $5
+      RETURNING user_id AS id, approval_status, is_listed, rejection_reason
       `,
-      [approvalStatus, isListed, clearPending, sitterId]
+      [approvalStatus, isListed, clearPending, rejectionReason, sitterId]
     );
 
     return rows[0] ?? null;

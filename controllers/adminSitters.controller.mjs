@@ -47,7 +47,8 @@ export const adminSittersController = {
     try {
       await adminSittersService.updateStatus(
         req.params.id,
-        req.body.approval_status
+        req.body.approval_status,
+        req.body.rejection_reason
       );
 
       return res.status(200).json({

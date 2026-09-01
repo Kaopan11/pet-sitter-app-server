@@ -76,7 +76,7 @@ export const adminSittersService = {
     return overlayPending(sitter);
   },
 
-  async updateStatus(sitterId, requestedStatus) {
+  async updateStatus(sitterId, requestedStatus, rejectionReason) {
     if (!["Approved", "Rejected"].includes(requestedStatus)) {
       throw httpError(400, "Invalid approval status");
     }
@@ -88,6 +88,7 @@ export const adminSittersService = {
 
     const current = sitter.approval_status;
 
+    // requestedStatus คือ approve หรือ reject ที่ admin กดบนหน้า admin
     if (requestedStatus === "Approved") {
       if (current === "Waiting for verify") {
         await applyPendingProfile(sitterId, sitter.pending_profile);
@@ -95,6 +96,7 @@ export const adminSittersService = {
           approvalStatus: "Verified",
           isListed: false,
           clearPending: true,
+          rejectionReason: null,
         });
       }
 
@@ -104,26 +106,36 @@ export const adminSittersService = {
           approvalStatus: "Approved",
           isListed: true,
           clearPending: true,
+          rejectionReason: null,
         });
       }
 
       throw httpError(400, "This profile is not waiting for review");
     }
 
-    if (current === "Waiting for verify") {
-      return adminSittersRepository.updateStatus(sitterId, {
-        approvalStatus: "Unverified",
-        isListed: false,
-        clearPending: false,
-      });
+    const note = String(rejectionReason ?? "").trim();
+    if (!note) {
+      throw httpError(400, "Rejection reason is required");
     }
 
-    if (current === "Waiting for approve") {
-      return adminSittersRepository.updateStatus(sitterId, {
-        approvalStatus: "Rejected",
-        isListed: false,
-        clearPending: false,
-      });
+    if (requestedStatus === "Rejected") {
+      if (current === "Waiting for verify") {
+        return adminSittersRepository.updateStatus(sitterId, {
+          approvalStatus: "Unverified",
+          isListed: false,
+          clearPending: false,
+          rejectionReason: note,
+        });
+      }
+
+      if (current === "Waiting for approve") {
+        return adminSittersRepository.updateStatus(sitterId, {
+          approvalStatus: "Rejected",
+          isListed: false,
+          clearPending: false,
+          rejectionReason: note,
+        });
+      }
     }
 
     throw httpError(400, "This profile is not waiting for review");

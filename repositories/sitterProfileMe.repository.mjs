@@ -46,6 +46,7 @@ export const sitterProfileMeRepository = {
         sitter_profiles.bank_name,
         sitter_profiles.account_number,
         sitter_profiles.approval_status,
+        sitter_profiles.rejection_reason,
         sitter_profiles.is_listed,
         sitter_profiles.pending_profile,
         users.name,
