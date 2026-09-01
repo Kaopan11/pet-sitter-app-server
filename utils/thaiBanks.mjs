@@ -2,14 +2,14 @@ import { httpError } from "./httpError.mjs";
 
 /** แหล่งเดียวสำหรับ GET /api/banks + validate ตอน PUT */
 export const THAI_BANKS = [
-  { code: "SCB", name: "ไทยพาณิชย์" },
-  { code: "KBANK", name: "กสิกรไทย" },
-  { code: "BBL", name: "กรุงเทพ" },
-  { code: "KTB", name: "กรุงไทย" },
-  { code: "BAY", name: "กรุงศรีอยุธยา" },
-  { code: "TTB", name: "ทหารไทยธนชาต" },
-  { code: "GSB", name: "ออมสิน" },
-  { code: "BAAC", name: "ธ.ก.ส." },
+  { code: "SCB", name: "SCB" },
+  { code: "KBANK", name: "KBANK" },
+  { code: "BBL", name: "BBL" },
+  { code: "KTB", name: "KTB" },
+  { code: "BAY", name: "BAY" },
+  { code: "TTB", name: "TTB" },
+  { code: "GSB", name: "GSB" },
+  { code: "BAAC", name: "BAAC" },
 ];
 
 const BANK_BY_CODE = new Map(THAI_BANKS.map((bank) => [bank.code, bank]));

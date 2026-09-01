@@ -7,9 +7,10 @@ import {
 } from "./thaiBanks.mjs";
 
 describe("listThaiBanks", () => {
-  it("returns code and name pairs", () => {
+  it("returns code and English name pairs", () => {
     const banks = listThaiBanks();
     assert.ok(banks.some((bank) => bank.code === "SCB"));
+    assert.deepEqual(banks[0], { code: "SCB", name: "SCB" });
   });
 });
 
@@ -17,7 +18,7 @@ describe("resolveThaiBankByCode", () => {
   it("resolves known bank codes case-insensitively", () => {
     assert.deepEqual(resolveThaiBankByCode("scb"), {
       code: "SCB",
-      name: "ไทยพาณิชย์",
+      name: "SCB",
     });
   });
 

@@ -159,6 +159,7 @@ describe("createPayoutService", () => {
     const result = await service.getMyPayout("sitter-1", {});
     assert.equal(result.bankAccount.accountNumberMasked, "*444");
     assert.equal(result.bankAccount.bankCode, "SCB");
+    assert.equal(result.bankAccount.bankName, "SCB");
   });
 });
 
@@ -173,7 +174,7 @@ describe("parseBankAccountPutBody", () => {
       }),
       {
         bankCode: "SCB",
-        bankName: "ไทยพาณิชย์",
+        bankName: "SCB",
         accountNumber: "003345347444",
         accountName: "Jane Watson",
         bookBankImageUrl: "https://example.com/book.jpg",
@@ -215,9 +216,9 @@ describe("parseBankAccountPutBody", () => {
 });
 
 describe("GET /api/banks contract", () => {
-  it("returns stable code and name pairs", () => {
+  it("returns code and English name pairs", () => {
     const banks = listThaiBanks();
     assert.ok(banks.length >= 8);
-    assert.deepEqual(banks[0], { code: "SCB", name: "ไทยพาณิชย์" });
+    assert.deepEqual(banks[0], { code: "SCB", name: "SCB" });
   });
 });

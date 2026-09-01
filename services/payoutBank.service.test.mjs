@@ -10,7 +10,7 @@ describe("mapBankAccountResponse", () => {
     assert.equal(mapBankAccountResponse({ bank_code: "SCB" }), null);
   });
 
-  it("masks account number in the response", () => {
+  it("masks account number and uses English bank name from bank code", () => {
     assert.deepEqual(
       mapBankAccountResponse({
         bank_code: "SCB",
@@ -21,8 +21,28 @@ describe("mapBankAccountResponse", () => {
       }),
       {
         bankCode: "SCB",
-        bankName: "ไทยพาณิชย์",
+        bankName: "SCB",
         accountNumberMasked: "*444",
+        accountName: "Jane Watson",
+        bookBankImageUrl: "https://example.com/book.jpg",
+      }
+    );
+  });
+});
+
+describe("parseBankAccountPutBody", () => {
+  it("persists English bank name from bank code", () => {
+    assert.deepEqual(
+      parseBankAccountPutBody({
+        bankCode: "scb",
+        accountNumber: "003-345-347-444",
+        accountName: "Jane Watson",
+        bookBankImageUrl: "https://example.com/book.jpg",
+      }),
+      {
+        bankCode: "SCB",
+        bankName: "SCB",
+        accountNumber: "003345347444",
         accountName: "Jane Watson",
         bookBankImageUrl: "https://example.com/book.jpg",
       }

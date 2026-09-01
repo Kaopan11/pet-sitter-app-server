@@ -25,6 +25,18 @@ function normalizeRequiredString(value, fieldName) {
   return value.trim();
 }
 
+function resolveBankDisplayName(bankCode, storedName) {
+  if (typeof bankCode !== "string" || !bankCode.trim()) {
+    return storedName ?? null;
+  }
+
+  try {
+    return resolveThaiBankByCode(bankCode).name;
+  } catch {
+    return storedName ?? null;
+  }
+}
+
 /** T06 — validate PUT body แยกออกมาเทสได้ (ไม่แตะ DB) */
 export function parseBankAccountPutBody(body) {
   const bank = resolveThaiBankByCode(body?.bankCode);
@@ -48,7 +60,7 @@ export function mapBankAccountResponse(row) {
 
   return {
     bankCode: row.bank_code ?? null,
-    bankName: row.bank_name ?? null,
+    bankName: resolveBankDisplayName(row.bank_code, row.bank_name),
     accountNumberMasked: maskAccountNumber(row.account_number),
     accountName: row.account_name ?? null,
     bookBankImageUrl: row.book_bank_image_url ?? null,
