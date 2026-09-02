@@ -113,6 +113,23 @@ export const bookingsController = {
     }
   },
 
+  async rescheduleOwnerBooking(req, res, next) {
+    try {
+      const rescheduled = await bookingsService.rescheduleOwnerBooking(
+        req.user.id,
+        req.params.id,
+        req.body
+      );
+
+      return res.status(200).json({
+        message: "Booking date updated successfully",
+        data: rescheduled,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async submitOwnerReview(req, res, next) {
     try {
       const { rating, text } = req.body;

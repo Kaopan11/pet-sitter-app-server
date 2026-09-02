@@ -20,6 +20,11 @@ ownerBookingsRouter.post(
   bookingsController.cancelOwnerBooking
 );
 ownerBookingsRouter.post(
+  "/owner/:id/reschedule",
+  requireAuth,
+  bookingsController.rescheduleOwnerBooking
+);
+ownerBookingsRouter.post(
   "/owner/:id/review",
   requireAuth,
   bookingsController.submitOwnerReview

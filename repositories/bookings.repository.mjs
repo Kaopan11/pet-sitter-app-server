@@ -368,6 +368,42 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  async updateScheduleByIdAndOwnerId(
+    ownerId,
+    bookingId,
+    { startDate, endDate, startTime, endTime, duration, durationUnit, totalPrice }
+  ) {
+    const { rows } = await connectionPool.query(
+      `
+      UPDATE bookings
+      SET start_date = $3::date,
+          end_date = $4::date,
+          start_time = $5::time,
+          end_time = $6::time,
+          duration = $7,
+          duration_unit = $8,
+          total_price = $9,
+          updated_at = NOW()
+      WHERE id = $1
+        AND owner_id = $2
+      RETURNING id, start_date, end_date, start_time, end_time, duration, duration_unit, total_price, status
+      `,
+      [
+        bookingId,
+        ownerId,
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        duration,
+        durationUnit,
+        totalPrice,
+      ]
+    );
+
+    return rows[0] ?? null;
+  },
+
   // owner booking — สร้าง booking + pets + payment ใน transaction เดียว
   async createBookingWithPets({
     ownerId,
@@ -520,6 +556,7 @@ export const bookingsRepository = {
     endDate,
     startTime,
     endTime,
+    excludeBookingId = null,
   }) {
     const { rows } = await connectionPool.query(
       `
@@ -527,6 +564,7 @@ export const bookingsRepository = {
       FROM bookings
       WHERE sitter_id = $1
         AND status IN ('waiting_confirm', 'waiting_service', 'in_service')
+        AND ($6::text IS NULL OR id::text <> $6::text)
         AND (
           (
             COALESCE(end_date, start_date) > start_date
@@ -549,7 +587,7 @@ export const bookingsRepository = {
         )
       LIMIT 1
       `,
-      [sitterId, startDate, endDate, startTime, endTime]
+      [sitterId, startDate, endDate, startTime, endTime, excludeBookingId]
     );
 
     return Boolean(rows[0]);
