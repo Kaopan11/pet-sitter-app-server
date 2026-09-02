@@ -20,6 +20,7 @@ import { toStripeAmount } from "../utils/stripeAmount.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { reportsRepository } from "../repositories/reports.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
+import { isOwnerProfileComplete } from "../middlewares/validateUsers.mjs";
 
 const ALLOWED_TRANSITIONS = {
   waiting_confirm: ["waiting_service", "cancelled"],
@@ -368,11 +369,8 @@ export const bookingsService = {
       throw httpError(400, "One or more pets are not accepted by this sitter");
     }
 
-    if (!owner.email) {
-      throw httpError(400, "Owner email is required to book");
-    }
-    if (!owner.phone) {
-      throw httpError(400, "Owner phone is required to book");
+    if (!isOwnerProfileComplete(owner)) {
+      throw httpError(400, "Please complete your profile before booking");
     }
 
     const overlapping = await bookingsRepository.hasOverlappingBooking({
