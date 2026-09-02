@@ -190,6 +190,79 @@ export const bookingsService = {
     );
   },
 
+  async rescheduleOwnerBooking(ownerId, bookingId, body) {
+    const booking = await bookingsRepository.findByIdAndOwnerId(
+      ownerId,
+      bookingId
+    );
+
+    if (!booking) {
+      throw httpError(404, "Booking not found");
+    }
+
+    if (booking.status !== "waiting_confirm") {
+      throw httpError(
+        400,
+        "Can only change the date of a booking that is waiting for confirmation"
+      );
+    }
+
+    const { startDate, endDate } = resolveBookingDateRange(body);
+    const { startTime, endTime } = resolveBookingTimes({
+      startDate,
+      endDate,
+      startTime: body?.startTime,
+      endTime: body?.endTime,
+    });
+
+    const overlapping = await bookingsRepository.hasOverlappingBooking({
+      sitterId: booking.sitter_id,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      excludeBookingId: bookingId,
+    });
+    if (overlapping) {
+      throw httpError(
+        409,
+        "This date and time is already booked. Please choose another slot."
+      );
+    }
+
+    const { duration, durationUnit, totalPrice } = resolveBookingPricing({
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      petCount: booking.pet_count,
+    });
+
+    // Stripe already authorized the original amount — capture later pulls that
+    // exact amount, so a card-paid booking can only move to a slot priced the
+    // same. Raising or silently under-capturing an existing PaymentIntent here
+    // isn't safe, so block it instead of drifting the charged amount.
+    if (
+      booking.payment_method === "stripe" &&
+      Number(totalPrice) !== Number(booking.total_price)
+    ) {
+      throw httpError(
+        400,
+        "This date/time would change the price, which isn't supported for card-paid bookings. Cancel and create a new booking instead."
+      );
+    }
+
+    return bookingsRepository.updateScheduleByIdAndOwnerId(ownerId, bookingId, {
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      duration,
+      durationUnit,
+      totalPrice,
+    });
+  },
+
   async submitReview(ownerId, bookingId, rating, text) {
     const booking = await bookingsRepository.findByIdAndOwnerId(
       ownerId,
