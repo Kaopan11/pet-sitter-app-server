@@ -1,5 +1,6 @@
 import { adminSittersRepository } from "../repositories/adminSitters.repository.mjs";
 import { sitterProfileMeRepository } from "../repositories/sitterProfileMe.repository.mjs";
+import { bookingsService } from "./bookings.service.mjs";
 import { overlayPending } from "../utils/pendingProfile.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import supabase from "../repositories/supabase.mjs";
@@ -74,6 +75,28 @@ export const adminSittersService = {
     }
 
     return overlayPending(sitter);
+  },
+
+  // มี bookingsService + repository อยู่แล้วของ sitter เลยหยิบมาใช้ได้เลย
+  async listBookings(sitterId, search, status, limit, offset) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    return bookingsService.getMyBookings(sitterId, search, status, limit, offset);
+  },
+
+  // มี bookingsService + repository อยู่แล้วของ sitter เลยหยิบมาใช้ได้เลย
+  async getBookingById(sitterId, bookingId) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    return bookingsService.getMyBookingById(sitterId, bookingId);
   },
 
   async updateStatus(sitterId, requestedStatus, rejectionReason) {
