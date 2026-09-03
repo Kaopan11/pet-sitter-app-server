@@ -1,0 +1,3 @@
+-- ตาราง notifications มีอยู่แล้วในโปรเจกต์:
+-- id, user_id, type, content, is_read, created_at
+-- แอปเก็บ title/body/href ใน content เป็น JSON ไม่ต้องรัน migrate เพิ่มคอลัมน์

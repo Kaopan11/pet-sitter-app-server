@@ -21,6 +21,7 @@ import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { reportsRepository } from "../repositories/reports.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import { isOwnerProfileComplete } from "../middlewares/validateUsers.mjs";
+import { notificationsService } from "./notifications.service.mjs";
 
 const ALLOWED_TRANSITIONS = {
   waiting_confirm: ["waiting_service", "cancelled"],
@@ -125,6 +126,23 @@ export const bookingsService = {
       nextStatus
     );
 
+    const ownerId = booking.owner_id ?? booking.pet_owner?.id;
+    if (nextStatus === "waiting_service" && ownerId) {
+      await notificationsService.notifyOwnerBookingConfirmed({
+        ownerId,
+        sitterId,
+        bookingId: booking.id,
+      });
+    }
+
+    if (nextStatus === "cancelled" && ownerId) {
+      await notificationsService.notifyOwnerSitterCancelled({
+        ownerId: booking.owner_id,
+        sitterId,
+        bookingId: booking.id,
+      });
+    }
+
     // T02 — cash + in_service → mark payments.paid (earnings eligible)
     if (
       shouldMarkCashPaidOnStatusChange({
@@ -184,11 +202,19 @@ export const bookingsService = {
       await cancelStripePaymentIntent(booking.payment_token);
     }
 
-    return bookingsRepository.updateStatusByIdAndOwnerId(
+    const updated = await bookingsRepository.updateStatusByIdAndOwnerId(
       ownerId,
       bookingId,
       "cancelled"
     );
+
+    await notificationsService.notifySitterOwnerCancelled({
+      ownerId,
+      sitterId: booking.sitter_id,
+      bookingId: booking.id,
+    });
+
+    return updated;
   },
 
   async rescheduleOwnerBooking(ownerId, bookingId, body) {
@@ -415,6 +441,12 @@ export const bookingsService = {
       additionalMessage,
       totalPrice,
       petIds,
+    });
+
+    await notificationsService.notifyOwnerHiredSitter({
+      ownerId: owner.id,
+      sitterId,
+      bookingId: created.bookingId,
     });
 
     if (paymentMethod === "cash") {
