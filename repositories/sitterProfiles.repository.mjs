@@ -176,7 +176,11 @@ export const sitterProfilesRepository = {
         ) and
         ($3::int[] is null or round(review_stats.rating_avg)::int = any($3)) and
         (sitter_profiles.experience_years = $4 or $4 is null) and
-        lower(sitter_profiles.approval_status) = 'approved'
+        (
+          sitter_profiles.is_listed = true
+          or lower(sitter_profiles.approval_status) = 'approved'
+        ) and
+        coalesce(users.is_banned, false) = false
       order by review_stats.rating_avg desc nulls last, sitter_profiles.display_name asc
       limit $5 offset $6
       `,
@@ -211,7 +215,11 @@ export const sitterProfilesRepository = {
         ) and
         ($3::int[] is null or round(review_stats.rating_avg)::int = any($3)) and
         (sitter_profiles.experience_years = $4 or $4 is null) and
-        lower(sitter_profiles.approval_status) = 'approved'
+        (
+          sitter_profiles.is_listed = true
+          or lower(sitter_profiles.approval_status) = 'approved'
+        ) and
+        coalesce(users.is_banned, false) = false
       `,
       [q, petTypes, rating, experience]
     );
@@ -280,7 +288,11 @@ export const sitterProfilesRepository = {
       on users.id = sitter_profiles.user_id
       ${LIVE_REVIEW_STATS}
       where sitter_profiles.user_id = $1
-        and lower(sitter_profiles.approval_status) = 'approved'
+        and (
+          sitter_profiles.is_listed = true
+          or lower(sitter_profiles.approval_status) = 'approved'
+        )
+        and coalesce(users.is_banned, false) = false
       limit 1
       `,
       [id]

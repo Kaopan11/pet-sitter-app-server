@@ -45,6 +45,7 @@ export const sittersController = {
         },
       });
     } catch (error) {
+      console.error("sitters.list", error);
       return res.status(500).json({
         message: "Server could not read pet sitters because database connection",
       });

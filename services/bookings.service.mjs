@@ -338,7 +338,7 @@ export const bookingsService = {
       throw httpError(403, "This account has been banned");
     }
 
-    if (owner.id === sitterId) {
+    if (String(owner.id) === String(sitterId)) {
       throw httpError(400, "You cannot book yourself");
     }
 
