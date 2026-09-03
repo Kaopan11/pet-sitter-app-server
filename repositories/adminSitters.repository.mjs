@@ -135,8 +135,10 @@ export const adminSittersRepository = {
            sub_district = $8,
            province = $9,
            post_code = $10,
+           latitude = $11,
+           longitude = $12,
            updated_at = NOW()
-       WHERE user_id = $11`,
+       WHERE user_id = $13`,
       [
         profile.display_name,
         profile.introduction,
@@ -148,6 +150,8 @@ export const adminSittersRepository = {
         profile.sub_district,
         profile.province,
         profile.post_code,
+        profile.latitude ?? null,
+        profile.longitude ?? null,
         userId,
       ]
     );

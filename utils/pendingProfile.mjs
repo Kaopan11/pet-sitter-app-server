@@ -39,6 +39,8 @@ export function overlayPending(row) {
     sub_district: pending.sub_district ?? row.sub_district,
     province: pending.province ?? row.province,
     post_code: pending.post_code ?? row.post_code,
+    latitude: pending.latitude ?? row.latitude,
+    longitude: pending.longitude ?? row.longitude,
     photos: pending.photos?.map((photo) => photo.photo_url) ?? row.photos,
     sitter_photos:
       pending.photos?.map((photo, index) => ({

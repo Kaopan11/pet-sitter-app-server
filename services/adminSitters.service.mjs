@@ -53,6 +53,10 @@ async function applyPendingProfile(userId, pending) {
     sub_district: pending.sub_district ?? current.sub_district,
     province: pending.province ?? current.province,
     post_code: pending.post_code ?? current.post_code,
+    latitude:
+      pending.latitude !== undefined ? pending.latitude : current.latitude,
+    longitude:
+      pending.longitude !== undefined ? pending.longitude : current.longitude,
   });
 
   if (Array.isArray(pending.pet_types) && pending.pet_types.length > 0) {
