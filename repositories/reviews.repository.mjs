@@ -85,4 +85,27 @@ export const reviewsRepository = {
       review_count: Number(rows[0]?.review_count ?? 0),
     };
   },
+
+  async findByOwnerId(ownerId) {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        reviews.id,
+        COALESCE(sitter_profiles.display_name, sitter_users.name) AS sitter_name,
+        sitter_users.avatar_url AS sitter_avatar_url,
+        reviews.rating,
+        reviews.comment,
+        reviews.created_at
+      FROM public.reviews
+      LEFT JOIN public.users AS sitter_users
+        ON sitter_users.id = reviews.sitter_id
+      LEFT JOIN public.sitter_profiles
+        ON sitter_profiles.user_id = reviews.sitter_id
+      WHERE reviews.owner_id = $1
+      ORDER BY reviews.created_at DESC
+      `,
+      [ownerId]
+    );
+    return rows;
+  },
 };

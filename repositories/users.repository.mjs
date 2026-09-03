@@ -1,7 +1,7 @@
 import { pool } from "./db.mjs";
 
 const USER_COLUMNS =
-  "id, name, email, phone, id_number, date_of_birth, avatar_url, is_admin, is_verified, created_at, updated_at";
+  "id, name, email, phone, id_number, date_of_birth, avatar_url, is_admin, is_verified, is_banned, created_at, updated_at";
 
 export const usersRepository = {
   async findAll() {
@@ -70,6 +70,19 @@ export const usersRepository = {
        WHERE id = $1
        RETURNING ${USER_COLUMNS}`,
       [id, name, email, phone, id_number, date_of_birth, avatar_url]
+    );
+    return rows[0] ?? null;
+  },
+
+  async setBanned(id, isBanned) {
+    const { rows } = await pool.query(
+      `UPDATE public.users
+       SET is_banned = $2,
+           updated_at = NOW()
+       WHERE id = $1
+         AND is_admin IS NOT TRUE
+       RETURNING ${USER_COLUMNS}`,
+      [id, isBanned]
     );
     return rows[0] ?? null;
   },

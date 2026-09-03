@@ -20,6 +20,7 @@ import { toStripeAmount } from "../utils/stripeAmount.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { reportsRepository } from "../repositories/reports.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
+import { isOwnerProfileComplete } from "../middlewares/validateUsers.mjs";
 
 const ALLOWED_TRANSITIONS = {
   waiting_confirm: ["waiting_service", "cancelled"],
@@ -333,6 +334,10 @@ export const bookingsService = {
       endTime: body?.endTime,
     });
 
+    if (owner.is_banned) {
+      throw httpError(403, "This account has been banned");
+    }
+
     if (owner.id === sitterId) {
       throw httpError(400, "You cannot book yourself");
     }
@@ -355,6 +360,9 @@ export const bookingsService = {
     if (pets.length !== petIds.length) {
       throw httpError(400, "One or more pets do not belong to you");
     }
+    if (pets.some((pet) => pet.is_suspended)) {
+      throw httpError(400, "One or more pets are suspended and cannot be booked");
+    }
 
     const acceptedTypes = new Set(
       parsePetTypes(sitter.pet_types).map((name) =>
@@ -368,11 +376,8 @@ export const bookingsService = {
       throw httpError(400, "One or more pets are not accepted by this sitter");
     }
 
-    if (!owner.email) {
-      throw httpError(400, "Owner email is required to book");
-    }
-    if (!owner.phone) {
-      throw httpError(400, "Owner phone is required to book");
+    if (!isOwnerProfileComplete(owner)) {
+      throw httpError(400, "Please complete your profile before booking");
     }
 
     const overlapping = await bookingsRepository.hasOverlappingBooking({

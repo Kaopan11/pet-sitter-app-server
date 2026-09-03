@@ -148,6 +148,9 @@ export const authService = {
     if (!profile) {
       throw httpError(401, "Email is incorrect");
     }
+    if (profile.is_banned) {
+      throw httpError(403, "This account has been banned");
+    }
 
     // 2) email มีแล้ว → ลองรหัสผ่านกับ Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({

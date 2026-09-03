@@ -1,4 +1,31 @@
 const MIN_OWNER_AGE = 18;
+
+function toIsoDate(value) {
+  if (!value) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  return "";
+}
+
+export function isOwnerProfileComplete(owner) {
+  const name = String(owner?.name ?? "").trim();
+  const email = String(owner?.email ?? "").trim();
+  const phone = String(owner?.phone ?? "").replace(/\D/g, "");
+  const idNumber = String(owner?.id_number ?? "").replace(/\D/g, "");
+  const dateOfBirth = toIsoDate(owner?.date_of_birth);
+
+  if (!name || name.length < 6 || name.length > 20) return false;
+  if (!/^[^\s@]+@[^\s@]+\.com$/i.test(email)) return false;
+  if (!/^0\d{9}$/.test(phone)) return false;
+  if (!/^\d{13}$/.test(idNumber)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) return false;
+  if (getAge(dateOfBirth) < MIN_OWNER_AGE) return false;
+  return true;
+}
+
 export function getAge(dateOfBirth) {
   const birth = new Date(`${dateOfBirth}T00:00:00`);
   const today = new Date();
