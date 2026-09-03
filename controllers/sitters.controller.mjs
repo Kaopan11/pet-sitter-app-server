@@ -13,7 +13,12 @@ export const sittersController = {
             .map((item) => item.trim().toLowerCase())
             .filter(Boolean)
         : null;
-      const rating = req.query.rating ? Number(req.query.rating) : null;
+      const ratings = req.query.rating
+        ? String(req.query.rating)
+            .split(",")
+            .map((item) => Number.parseInt(item.trim(), 10))
+            .filter((item) => item >= 1 && item <= 5)
+        : null;
       const experience = req.query.experience
         ? String(req.query.experience).replace(/\s*years$/i, "").trim()
         : null;
@@ -24,7 +29,7 @@ export const sittersController = {
       const result = await sitterProfilesRepository.findMany({
         q,
         petTypes: petTypes?.length ? petTypes : null,
-        rating: Number.isFinite(rating) ? rating : null,
+        rating: ratings?.length ? [...new Set(ratings)] : null,
         experience: experience || null,
         pageSize: PAGE_SIZE,
         offset,

@@ -18,6 +18,16 @@ function parseJsonArray(value) {
   return [];
 }
 
+const LIVE_REVIEW_STATS = `
+      left join lateral (
+        select
+          coalesce(round(avg(reviews.rating)::numeric, 1), 0) as rating_avg,
+          count(*)::int as review_count
+        from reviews
+        where reviews.sitter_id = sitter_profiles.user_id
+      ) as review_stats on true
+`;
+
 function toListItem(row) {
   const petTypes = parseJsonArray(row.pet_types);
 
@@ -120,7 +130,7 @@ export const sitterProfilesRepository = {
         users.name as sitter_name,
         users.avatar_url,
         concat_ws(', ', sitter_profiles.district, sitter_profiles.province) as location,
-        round(coalesce(sitter_profiles.rating_avg, 0))::int as rating,
+        round(review_stats.rating_avg)::int as rating,
         sitter_profiles.experience_years as experience,
         sitter_profiles.latitude,
         sitter_profiles.longitude,
@@ -144,6 +154,7 @@ export const sitterProfilesRepository = {
       from sitter_profiles
       inner join users
       on users.id = sitter_profiles.user_id
+      ${LIVE_REVIEW_STATS}
       where (
           sitter_profiles.display_name ilike $1 or
           sitter_profiles.my_place ilike $1 or
@@ -163,10 +174,10 @@ export const sitterProfilesRepository = {
               and lower(pet_types.name) = any($2)
           )
         ) and
-        (sitter_profiles.rating_avg >= $3 or $3 is null) and
+        ($3::int[] is null or round(review_stats.rating_avg)::int = any($3)) and
         (sitter_profiles.experience_years = $4 or $4 is null) and
         lower(sitter_profiles.approval_status) = 'approved'
-      order by sitter_profiles.rating_avg desc nulls last, sitter_profiles.display_name asc
+      order by review_stats.rating_avg desc nulls last, sitter_profiles.display_name asc
       limit $5 offset $6
       `,
       [q, petTypes, rating, experience, pageSize, offset]
@@ -178,6 +189,7 @@ export const sitterProfilesRepository = {
       from sitter_profiles
       inner join users
       on users.id = sitter_profiles.user_id
+      ${LIVE_REVIEW_STATS}
       where (
           sitter_profiles.display_name ilike $1 or
           sitter_profiles.my_place ilike $1 or
@@ -197,7 +209,7 @@ export const sitterProfilesRepository = {
               and lower(pet_types.name) = any($2)
           )
         ) and
-        (sitter_profiles.rating_avg >= $3 or $3 is null) and
+        ($3::int[] is null or round(review_stats.rating_avg)::int = any($3)) and
         (sitter_profiles.experience_years = $4 or $4 is null) and
         lower(sitter_profiles.approval_status) = 'approved'
       `,
@@ -219,9 +231,9 @@ export const sitterProfilesRepository = {
         users.name as sitter_name,
         users.avatar_url,
         concat_ws(', ', sitter_profiles.district, sitter_profiles.province) as location,
-        round(coalesce(sitter_profiles.rating_avg, 0))::int as rating,
-        coalesce(sitter_profiles.rating_avg, 0) as rating_avg,
-        coalesce(sitter_profiles.review_count, 0) as review_count,
+        round(review_stats.rating_avg)::int as rating,
+        review_stats.rating_avg as rating_avg,
+        review_stats.review_count as review_count,
         sitter_profiles.experience_years as experience,
         sitter_profiles.introduction,
         sitter_profiles.services,
@@ -266,6 +278,7 @@ export const sitterProfilesRepository = {
       from sitter_profiles
       inner join users
       on users.id = sitter_profiles.user_id
+      ${LIVE_REVIEW_STATS}
       where sitter_profiles.user_id = $1
         and lower(sitter_profiles.approval_status) = 'approved'
       limit 1

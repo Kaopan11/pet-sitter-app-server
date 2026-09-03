@@ -15,10 +15,16 @@ export const reviewsRepository = {
 
       await client.query(
         `UPDATE sitter_profiles
-         SET review_count = review_count + 1,
-             rating_avg = ((COALESCE(rating_avg, 0) * review_count) + $2) / (review_count + 1)
+         SET review_count = (
+               select count(*)::int from reviews where sitter_id = $1
+             ),
+             rating_avg = (
+               select coalesce(round(avg(rating)::numeric, 1), 0)
+               from reviews
+               where sitter_id = $1
+             )
          WHERE user_id = $1`,
-        [sitterId, rating]
+        [sitterId]
       );
 
       await client.query("COMMIT");
