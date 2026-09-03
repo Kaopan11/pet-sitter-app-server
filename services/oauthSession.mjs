@@ -36,6 +36,9 @@ export async function runResolveOAuthSession(accessToken, deps) {
   if (!profile) {
     throw httpError(404, "Profile incomplete");
   }
+  if (profile.is_banned) {
+    throw httpError(403, "This account has been banned");
+  }
 
   const isSitter = await deps.hasSitterProfile(profile.id);
 

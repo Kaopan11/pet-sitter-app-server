@@ -1,6 +1,7 @@
 import { adminOwnersRepository } from "../repositories/adminOwners.repository.mjs";
 import { petsRepository } from "../repositories/pets.repository.mjs";
 import { reviewsRepository } from "../repositories/reviews.repository.mjs";
+import { usersRepository } from "../repositories/users.repository.mjs";
 import { httpError } from "../utils/httpError.mjs";
 
 function serializePet(pet) {
@@ -15,6 +16,7 @@ function serializePet(pet) {
     weight_kg: pet.weight_kg == null ? null : Number(pet.weight_kg),
     about: pet.about,
     avatar_url: pet.avatar_url,
+    is_suspended: Boolean(pet.is_suspended),
   };
 }
 
@@ -51,5 +53,54 @@ export const adminOwnersService = {
       pets: pets.map(serializePet),
       reviews: reviews.map(serializeReview),
     };
+  },
+
+  async setBanStatus(ownerId, isBanned) {
+    if (typeof isBanned !== "boolean") {
+      throw httpError(400, "is_banned must be true or false");
+    }
+
+    const owner = await adminOwnersRepository.findById(ownerId);
+    if (!owner) {
+      throw httpError(404, "Pet owner not found");
+    }
+
+    const updated = await usersRepository.setBanned(ownerId, isBanned);
+    if (!updated) {
+      throw httpError(404, "Pet owner not found");
+    }
+
+    return {
+      id: updated.id,
+      is_banned: Boolean(updated.is_banned),
+      status: updated.is_banned ? "Banned" : "Normal",
+    };
+  },
+
+  async setPetSuspended(ownerId, petId, isSuspended) {
+    if (typeof isSuspended !== "boolean") {
+      throw httpError(400, "is_suspended must be true or false");
+    }
+
+    const owner = await adminOwnersRepository.findById(ownerId);
+    if (!owner) {
+      throw httpError(404, "Pet owner not found");
+    }
+
+    const parsedPetId = Number(petId);
+    if (!Number.isInteger(parsedPetId) || parsedPetId <= 0) {
+      throw httpError(400, "Invalid pet id");
+    }
+
+    const pet = await petsRepository.setSuspended(
+      parsedPetId,
+      ownerId,
+      isSuspended
+    );
+    if (!pet) {
+      throw httpError(404, "Pet not found");
+    }
+
+    return serializePet(pet);
   },
 };

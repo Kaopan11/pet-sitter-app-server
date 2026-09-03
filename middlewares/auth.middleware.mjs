@@ -60,6 +60,10 @@ export const requireAuth = async (req, res, next) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    if (profile.is_banned) {
+      return res.status(403).json({ message: "This account has been banned" });
+    }
+
     req.authUser = authUser;
     req.user = profile;
     next();

@@ -105,4 +105,28 @@ describe("runResolveOAuthSession", () => {
       },
     });
   });
+
+  it("rejects a banned user", async () => {
+    await assert.rejects(
+      () =>
+        runResolveOAuthSession("oauth-token", {
+          getUserByAccessToken: async () => ({
+            user: { id: "auth-1" },
+            error: null,
+          }),
+          findProfileById: async () => ({
+            id: "auth-1",
+            email: "owner@example.com",
+            is_banned: true,
+          }),
+          hasSitterProfile: async () => false,
+          toAuthUser,
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 403);
+        assert.match(err.message, /banned/i);
+        return true;
+      }
+    );
+  });
 });

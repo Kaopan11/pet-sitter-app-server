@@ -334,6 +334,10 @@ export const bookingsService = {
       endTime: body?.endTime,
     });
 
+    if (owner.is_banned) {
+      throw httpError(403, "This account has been banned");
+    }
+
     if (owner.id === sitterId) {
       throw httpError(400, "You cannot book yourself");
     }
@@ -355,6 +359,9 @@ export const bookingsService = {
     const pets = await petsRepository.findManyByIds(petIds, owner.id);
     if (pets.length !== petIds.length) {
       throw httpError(400, "One or more pets do not belong to you");
+    }
+    if (pets.some((pet) => pet.is_suspended)) {
+      throw httpError(400, "One or more pets are suspended and cannot be booked");
     }
 
     const acceptedTypes = new Set(

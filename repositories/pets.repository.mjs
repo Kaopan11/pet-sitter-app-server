@@ -13,6 +13,7 @@ const PET_COLUMNS = `
   pets.weight_kg,
   pets.about,
   pets.avatar_url,
+  pets.is_suspended,
   pets.created_at
 `;
 
@@ -39,7 +40,8 @@ export const petsRepository = {
       `SELECT
          pets.id,
          pets.name,
-         pet_types.name AS pet_type
+         pet_types.name AS pet_type,
+         pets.is_suspended
        FROM public.pets
        INNER JOIN public.pet_types ON pet_types.id = pets.pet_type_id
        WHERE pets.id = ANY($1::bigint[])
@@ -147,6 +149,18 @@ export const petsRepository = {
     );
     return rows[0] ?? null;
   },
+  async setSuspended(id, ownerId, isSuspended) {
+    const { rows } = await pool.query(
+      `UPDATE public.pets
+       SET is_suspended = $3
+       WHERE id = $1 AND owner_id = $2
+       RETURNING id`,
+      [id, ownerId, isSuspended]
+    );
+    if (!rows[0]) return null;
+    return this.findById(rows[0].id);
+  },
+
   //check if the pet is book, cannot delete while sitter is booked for the pet
   async isUsedInBooking(petId) {
     const { rowCount } = await pool.query(

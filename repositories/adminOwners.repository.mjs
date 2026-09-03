@@ -32,6 +32,7 @@ export const adminOwnersRepository = {
          users.phone,
          users.email,
          users.avatar_url,
+         users.is_banned,
          (
            SELECT COUNT(*)::int
            FROM public.pets
@@ -48,7 +49,8 @@ export const adminOwnersRepository = {
       rows: result.rows.map((row) => ({
         ...row,
         pet_count: Number(row.pet_count ?? 0),
-        status: "Normal",
+        is_banned: Boolean(row.is_banned),
+        status: row.is_banned ? "Banned" : "Normal",
       })),
       totalOwners: Number(count.rows[0].count),
     };
@@ -63,7 +65,8 @@ export const adminOwnersRepository = {
          users.email,
          users.id_number,
          to_char(users.date_of_birth, 'YYYY-MM-DD') AS date_of_birth,
-         users.avatar_url
+         users.avatar_url,
+         users.is_banned
        FROM public.users
        WHERE users.id = $1
          AND users.is_admin IS NOT TRUE`,
@@ -75,7 +78,8 @@ export const adminOwnersRepository = {
 
     return {
       ...owner,
-      status: "Normal",
+      is_banned: Boolean(owner.is_banned),
+      status: owner.is_banned ? "Banned" : "Normal",
     };
   },
 };
