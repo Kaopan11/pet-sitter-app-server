@@ -5,6 +5,7 @@ import { bookingsService } from "./bookings.service.mjs";
 import { overlayPending } from "../utils/pendingProfile.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import supabase from "../repositories/supabase.mjs";
+import { notificationsService } from "./notifications.service.mjs";
 
 async function applyPendingProfile(userId, pending) {
   if (!pending) return;
@@ -160,22 +161,32 @@ export const adminSittersService = {
     if (requestedStatus === "Approved") {
       if (current === "Waiting for verify") {
         await applyPendingProfile(sitterId, sitter.pending_profile);
-        return adminSittersRepository.updateStatus(sitterId, {
+        const updated = await adminSittersRepository.updateStatus(sitterId, {
           approvalStatus: "Verified",
           isListed: false,
           clearPending: true,
           rejectionReason: null,
         });
+        await notificationsService.notifySitterApprovalStatus(
+          sitterId,
+          "Verified"
+        );
+        return updated;
       }
 
       if (current === "Waiting for approve") {
         await applyPendingProfile(sitterId, sitter.pending_profile);
-        return adminSittersRepository.updateStatus(sitterId, {
+        const updated = await adminSittersRepository.updateStatus(sitterId, {
           approvalStatus: "Approved",
           isListed: true,
           clearPending: true,
           rejectionReason: null,
         });
+        await notificationsService.notifySitterApprovalStatus(
+          sitterId,
+          "Approved"
+        );
+        return updated;
       }
 
       throw httpError(400, "This profile is not waiting for review");
@@ -186,24 +197,32 @@ export const adminSittersService = {
       throw httpError(400, "Rejection reason is required");
     }
 
-    if (requestedStatus === "Rejected") {
-      if (current === "Waiting for verify") {
-        return adminSittersRepository.updateStatus(sitterId, {
-          approvalStatus: "Unverified",
-          isListed: false,
-          clearPending: false,
-          rejectionReason: note,
-        });
-      }
+    if (current === "Waiting for verify") {
+      const updated = await adminSittersRepository.updateStatus(sitterId, {
+        approvalStatus: "Unverified",
+        isListed: false,
+        clearPending: false,
+        rejectionReason: note,
+      });
+      await notificationsService.notifySitterApprovalStatus(
+        sitterId,
+        "Unverified"
+      );
+      return updated;
+    }
 
-      if (current === "Waiting for approve") {
-        return adminSittersRepository.updateStatus(sitterId, {
-          approvalStatus: "Rejected",
-          isListed: false,
-          clearPending: false,
-          rejectionReason: note,
-        });
-      }
+    if (current === "Waiting for approve") {
+      const updated = await adminSittersRepository.updateStatus(sitterId, {
+        approvalStatus: "Rejected",
+        isListed: false,
+        clearPending: false,
+        rejectionReason: note,
+      });
+      await notificationsService.notifySitterApprovalStatus(
+        sitterId,
+        "Rejected"
+      );
+      return updated;
     }
 
     throw httpError(400, "This profile is not waiting for review");
