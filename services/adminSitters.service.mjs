@@ -1,5 +1,7 @@
 import { adminSittersRepository } from "../repositories/adminSitters.repository.mjs";
 import { sitterProfileMeRepository } from "../repositories/sitterProfileMe.repository.mjs";
+import { reviewsRepository } from "../repositories/reviews.repository.mjs";
+import { bookingsService } from "./bookings.service.mjs";
 import { overlayPending } from "../utils/pendingProfile.mjs";
 import { httpError } from "../utils/httpError.mjs";
 import supabase from "../repositories/supabase.mjs";
@@ -76,7 +78,73 @@ export const adminSittersService = {
     return overlayPending(sitter);
   },
 
-  async updateStatus(sitterId, requestedStatus) {
+  // มี bookingsService + repository อยู่แล้วของ sitter เลยหยิบมาใช้ได้เลย
+  async listBookings(sitterId, search, status, limit, offset) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    return bookingsService.getMyBookings(sitterId, search, status, limit, offset);
+  },
+
+  // มี bookingsService + repository อยู่แล้วของ sitter เลยหยิบมาใช้ได้เลย
+  async getBookingById(sitterId, bookingId) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    return bookingsService.getMyBookingById(sitterId, bookingId);
+  },
+
+  async listReviews(sitterId, limit, offset) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    return reviewsRepository.findPendingBySitterId(sitterId, limit, offset);
+  },
+
+  async approveReview(sitterId, reviewId) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    const approved = await reviewsRepository.approveByIdAndSitterId(
+      sitterId,
+      reviewId
+    );
+
+    if (!approved) {
+      throw httpError(404, "Review not found");
+    }
+  },
+
+  async deleteReview(sitterId, reviewId) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    const deleted = await reviewsRepository.deletePendingByIdAndSitterId(
+      sitterId,
+      reviewId
+    );
+
+    if (!deleted) {
+      throw httpError(404, "Review not found");
+    }
+  },
+
+  async updateStatus(sitterId, requestedStatus, rejectionReason) {
     if (!["Approved", "Rejected"].includes(requestedStatus)) {
       throw httpError(400, "Invalid approval status");
     }
@@ -88,6 +156,7 @@ export const adminSittersService = {
 
     const current = sitter.approval_status;
 
+    // requestedStatus คือ approve หรือ reject ที่ admin กดบนหน้า admin
     if (requestedStatus === "Approved") {
       if (current === "Waiting for verify") {
         await applyPendingProfile(sitterId, sitter.pending_profile);
@@ -95,6 +164,7 @@ export const adminSittersService = {
           approvalStatus: "Verified",
           isListed: false,
           clearPending: true,
+          rejectionReason: null,
         });
       }
 
@@ -104,26 +174,36 @@ export const adminSittersService = {
           approvalStatus: "Approved",
           isListed: true,
           clearPending: true,
+          rejectionReason: null,
         });
       }
 
       throw httpError(400, "This profile is not waiting for review");
     }
 
-    if (current === "Waiting for verify") {
-      return adminSittersRepository.updateStatus(sitterId, {
-        approvalStatus: "Unverified",
-        isListed: false,
-        clearPending: false,
-      });
+    const note = String(rejectionReason ?? "").trim();
+    if (!note) {
+      throw httpError(400, "Rejection reason is required");
     }
 
-    if (current === "Waiting for approve") {
-      return adminSittersRepository.updateStatus(sitterId, {
-        approvalStatus: "Rejected",
-        isListed: false,
-        clearPending: false,
-      });
+    if (requestedStatus === "Rejected") {
+      if (current === "Waiting for verify") {
+        return adminSittersRepository.updateStatus(sitterId, {
+          approvalStatus: "Unverified",
+          isListed: false,
+          clearPending: false,
+          rejectionReason: note,
+        });
+      }
+
+      if (current === "Waiting for approve") {
+        return adminSittersRepository.updateStatus(sitterId, {
+          approvalStatus: "Rejected",
+          isListed: false,
+          clearPending: false,
+          rejectionReason: note,
+        });
+      }
     }
 
     throw httpError(400, "This profile is not waiting for review");
