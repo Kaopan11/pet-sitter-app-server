@@ -1,5 +1,6 @@
 import { adminSittersRepository } from "../repositories/adminSitters.repository.mjs";
 import { sitterProfileMeRepository } from "../repositories/sitterProfileMe.repository.mjs";
+import { reviewsRepository } from "../repositories/reviews.repository.mjs";
 import { bookingsService } from "./bookings.service.mjs";
 import { overlayPending } from "../utils/pendingProfile.mjs";
 import { httpError } from "../utils/httpError.mjs";
@@ -97,6 +98,50 @@ export const adminSittersService = {
     }
 
     return bookingsService.getMyBookingById(sitterId, bookingId);
+  },
+
+  async listReviews(sitterId, limit, offset) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    return reviewsRepository.findPendingBySitterId(sitterId, limit, offset);
+  },
+
+  async approveReview(sitterId, reviewId) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    const approved = await reviewsRepository.approveByIdAndSitterId(
+      sitterId,
+      reviewId
+    );
+
+    if (!approved) {
+      throw httpError(404, "Review not found");
+    }
+  },
+
+  async deleteReview(sitterId, reviewId) {
+    const sitter = await adminSittersRepository.findById(sitterId);
+
+    if (!sitter) {
+      throw httpError(404, "Sitter not found");
+    }
+
+    const deleted = await reviewsRepository.deletePendingByIdAndSitterId(
+      sitterId,
+      reviewId
+    );
+
+    if (!deleted) {
+      throw httpError(404, "Review not found");
+    }
   },
 
   async updateStatus(sitterId, requestedStatus, rejectionReason) {
