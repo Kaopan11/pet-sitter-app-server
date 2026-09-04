@@ -4,28 +4,38 @@ import { payoutBankService } from "../services/payoutBank.service.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 
 export const sittersController = {
+  // Landing page — list/search พี่เลี้ยงสัตว์เลี้ยง
+  // อ่าน query string จากหน้าเว็บ (คำค้น, ตัวกรอง, หน้า/limit) แล้วส่งต่อให้
+  // sitterProfilesRepository.findMany ไปสร้าง SQL query จริง จากนั้นห่อผลลัพธ์
+  // เป็น { data, pagination } กลับไปให้ frontend render การ์ด sitter + ปุ่มเปลี่ยนหน้า
   async list(req, res) {
     try {
+      // คำค้นหา (ชื่อ/พื้นที่) — ห่อด้วย % สำหรับ ILIKE แบบ partial match
       const q = req.query.q ? `%${req.query.q}%` : null;
+      // ตัวกรองประเภทสัตว์เลี้ยง เช่น "dog,cat" -> ["dog", "cat"]
       const petTypes = req.query.petTypes
         ? String(req.query.petTypes)
             .split(",")
             .map((item) => item.trim().toLowerCase())
             .filter(Boolean)
         : null;
+      // ตัวกรองคะแนนรีวิว เช่น "4,5" -> [4, 5] (รับเฉพาะ 1-5)
       const ratings = req.query.rating
         ? String(req.query.rating)
             .split(",")
             .map((item) => Number.parseInt(item.trim(), 10))
             .filter((item) => item >= 1 && item <= 5)
         : null;
+      // ตัวกรองปีประสบการณ์ ตัดคำว่า "years" ต่อท้ายทิ้ง (เผื่อ frontend ส่งมาแบบ "3 years")
       const experience = req.query.experience
         ? String(req.query.experience).replace(/\s*years$/i, "").trim()
         : null;
+      // การแบ่งหน้า — ค่าเริ่มต้นคือหน้า 1 แสดงทีละ 5 รายการ
       const page = Number(req.query.page) || 1;
       const PAGE_SIZE = Number(req.query.limit) || 5;
       const offset = (page - 1) * PAGE_SIZE;
 
+      // ยิง query ไปที่ DB ครั้งเดียว ได้ทั้งรายการของหน้านี้ + จำนวนทั้งหมดที่ตรงเงื่อนไข
       const result = await sitterProfilesRepository.findMany({
         q,
         petTypes: petTypes?.length ? petTypes : null,
@@ -35,6 +45,7 @@ export const sittersController = {
         offset,
       });
 
+      // ส่งกลับพร้อม metadata การแบ่งหน้าให้ frontend ทำปุ่ม next/prev ได้เอง
       return res.status(200).json({
         data: result.rows,
         pagination: {
