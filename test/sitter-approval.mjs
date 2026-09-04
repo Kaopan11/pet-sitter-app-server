@@ -91,14 +91,25 @@ function httpError(statusCode, message) {
 
 // จาก: utils/pendingProfile.mjs
 // ใช้ที่: sittersService.updateMyProfile, nextStatusAfterUpdate
-function isFullProfileUnlocked(status) {
-  return ["Verified", "Waiting for approve", "Approved", "Rejected"].includes(status);
+function isFullProfileUnlocked(status, profile) {
+  if (["Verified", "Waiting for approve", "Approved"].includes(status)) {
+    return true;
+  }
+  if (status !== "Rejected" || !profile) return false;
+  const pending = profile.pending_profile;
+  return Boolean(
+    profile.address_detail ||
+      profile.province ||
+      pending?.address_detail ||
+      pending?.province ||
+      pending?.display_name,
+  );
 }
 
 // จาก: utils/pendingProfile.mjs
 // ใช้ที่: sittersService.updateMyProfile -> savePending
-function nextStatusAfterUpdate(status) {
-  return isFullProfileUnlocked(status) ? "Waiting for approve" : "Waiting for verify";
+function nextStatusAfterUpdate(status, profile) {
+  return isFullProfileUnlocked(status, profile) ? "Waiting for approve" : "Waiting for verify";
 }
 
 // จาก: utils/pendingProfile.mjs
@@ -660,7 +671,7 @@ const sittersService = {
     const profile = await sitterProfileMeRepository.findByUserId(userId);
     if (!profile) throw httpError(404, "Sitter profile not found");
 
-    const fullProfileUnlocked = isFullProfileUnlocked(profile.approval_status);
+    const fullProfileUnlocked = isFullProfileUnlocked(profile.approval_status, profile);
     if (fullProfileUnlocked) validateSitterProfileBody(body);
     else validateSitterBasicBody(body);
 
@@ -732,7 +743,7 @@ const sittersService = {
     await sitterProfileMeRepository.savePending(
       userId,
       pending,
-      nextStatusAfterUpdate(profile.approval_status)
+      nextStatusAfterUpdate(profile.approval_status, profile)
     );
   },
 };
@@ -758,7 +769,7 @@ const adminSittersService = {
   // ใช้ที่: adminSittersController.updateStatus (PATCH /api/admin/sitters/:id/status)
   // Waiting for verify  + Approved -> Verified,  is_listed false, เคลียร์ pending
   // Waiting for approve + Approved -> Approved,  is_listed true,  เคลียร์ pending
-  // Waiting for verify  + Rejected -> Unverified, is_listed false, เก็บ pending
+  // Waiting for verify  + Rejected -> Rejected,  is_listed false, เก็บ pending
   // Waiting for approve + Rejected -> Rejected,  is_listed false, เก็บ pending
   async updateStatus(sitterId, requestedStatus) {
     if (!["Approved", "Rejected"].includes(requestedStatus)) {
@@ -792,7 +803,7 @@ const adminSittersService = {
 
     if (current === "Waiting for verify") {
       return adminSittersRepository.updateStatus(sitterId, {
-        approvalStatus: "Unverified",
+        approvalStatus: "Rejected",
         isListed: false,
         clearPending: false,
       });
