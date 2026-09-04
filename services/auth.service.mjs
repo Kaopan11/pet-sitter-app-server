@@ -10,20 +10,7 @@ import {
 import { runResetPassword } from "./resetPassword.mjs";
 import { runResolveOAuthSession } from "./oauthSession.mjs";
 import { runCompleteOAuthProfile } from "./oauthComplete.mjs";
-
-// รูป user ที่ส่งกลับ Frontend — ไม่มีรหัสผ่าน และไม่มี column role
-// isSitter / isAdmin ต้องส่งเสมอ — FE ใช้ redirect ไป /sitter/profile, /admin, หรือ /
-function toAuthUser(profile, isSitter) {
-  return {
-    id: profile.id,
-    email: profile.email,
-    phone: profile.phone,
-    name: profile.name ?? null,
-    avatarUrl: profile.avatar_url ?? null,
-    isSitter: Boolean(isSitter),
-    isAdmin: Boolean(profile.is_admin),
-  };
-}
+import { runLogin, toAuthUser } from "./login.mjs";
 
 function isDuplicateEmailError(error) {
   const message = String(error?.message ?? "").toLowerCase();
@@ -140,35 +127,21 @@ export const authService = {
   },
 
   async login({ email, password }) {
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // 1) หา email ใน public.users ก่อน — แยกข้อความให้ FE toast ได้
-    // ห้ามส่งข้อความที่มีทั้งคำว่า email และ password ในบรรทัดเดียว
-    const profile = await usersRepository.findByEmail(normalizedEmail);
-    if (!profile) {
-      throw httpError(401, "Email is incorrect");
-    }
-    if (profile.is_banned) {
-      throw httpError(403, "This account has been banned");
-    }
-
-    // 2) email มีแล้ว → ลองรหัสผ่านกับ Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
-
-    if (error || !data.user || !data.session) {
-      throw httpError(401, "Password is incorrect");
-    }
-
-    // มีแถวใน sitter_profiles = เป็น sitter → FE ใช้ redirect ไป /sitter/profile
-    const sitterProfile = await sitterProfilesRepository.findByUserId(profile.id);
-
-    return {
-      token: data.session.access_token,
-      user: toAuthUser(profile, Boolean(sitterProfile)),
-    };
+    return runLogin(
+      { email, password },
+      {
+        findByEmail: (normalizedEmail) =>
+          usersRepository.findByEmail(normalizedEmail),
+        signInWithPassword: (normalizedEmail, passwordValue) =>
+          supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password: passwordValue,
+          }),
+        findSitterProfileByUserId: (userId) =>
+          sitterProfilesRepository.findByUserId(userId),
+        toAuthUser,
+      }
+    );
   },
 
   async becomeSitter(userId) {

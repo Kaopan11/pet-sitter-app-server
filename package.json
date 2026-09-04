@@ -2,11 +2,11 @@
   "name": "pet-sitter-app-server",
   "version": "1.0.0",
   "description": "",
-  "main": "app.mjs",
+  "main": "server.mjs",
   "scripts": {
-    "start": "node app.mjs",
-    "dev": "nodemon app.mjs",
-    "test": "node --test utils/**/*.test.mjs services/**/*.test.mjs"
+    "start": "node server.mjs",
+    "dev": "nodemon server.mjs",
+    "test": "node --test utils/**/*.test.mjs services/**/*.test.mjs middlewares/**/*.test.mjs"
   },
   "repository": {
     "type": "git",
@@ -30,5 +30,8 @@
     "nodemon": "^3.1.14",
     "pg": "^8.23.0",
     "stripe": "^22.5.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2"
   }
 }
