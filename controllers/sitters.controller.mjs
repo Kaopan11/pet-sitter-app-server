@@ -3,7 +3,13 @@ import { payoutService } from "../services/payout.service.mjs";
 import { payoutBankService } from "../services/payoutBank.service.mjs";
 import { sitterProfilesRepository } from "../repositories/sitterProfiles.repository.mjs";
 
-export const sittersController = {
+export function createSittersController({
+  sitters = sittersService,
+  payout = payoutService,
+  payoutBank = payoutBankService,
+  sitterProfiles = sitterProfilesRepository,
+} = {}) {
+  return {
   // Landing page — list/search พี่เลี้ยงสัตว์เลี้ยง
   // อ่าน query string จากหน้าเว็บ (คำค้น, ตัวกรอง, หน้า/limit) แล้วส่งต่อให้
   // sitterProfilesRepository.findMany ไปสร้าง SQL query จริง จากนั้นห่อผลลัพธ์
@@ -36,7 +42,7 @@ export const sittersController = {
       const offset = (page - 1) * PAGE_SIZE;
 
       // ยิง query ไปที่ DB ครั้งเดียว ได้ทั้งรายการของหน้านี้ + จำนวนทั้งหมดที่ตรงเงื่อนไข
-      const result = await sitterProfilesRepository.findMany({
+      const result = await sitterProfiles.findMany({
         q,
         petTypes: petTypes?.length ? petTypes : null,
         rating: ratings?.length ? [...new Set(ratings)] : null,
@@ -66,7 +72,7 @@ export const sittersController = {
   // booking Day 0 — รายละเอียด sitter (ใช้ service จาก dev)
   async getById(req, res, next) {
     try {
-      const sitter = await sittersService.getPublicById(req.params.id);
+      const sitter = await sitters.getPublicById(req.params.id);
       return res.status(200).json({ data: sitter });
     } catch (error) {
       next(error);
@@ -78,7 +84,7 @@ export const sittersController = {
       const rating = req.query.rating ? Number(req.query.rating) : null;
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 5;
-      const result = await sittersService.getReviews(req.params.id, {
+      const result = await sitters.getReviews(req.params.id, {
         rating: Number.isInteger(rating) ? rating : null,
         page,
         limit,
@@ -101,7 +107,7 @@ export const sittersController = {
 
   async getAvailability(req, res, next) {
     try {
-      const slots = await sittersService.getAvailability(req.params.id);
+      const slots = await sitters.getAvailability(req.params.id);
       return res.status(200).json({ data: slots });
     } catch (error) {
       next(error);
@@ -110,7 +116,7 @@ export const sittersController = {
 
   async getMyProfile(req, res, next) {
     try {
-      const profile = await sittersService.getProfileByUserId(req.user.id);
+      const profile = await sitters.getProfileByUserId(req.user.id);
       return res.status(200).json({ data: profile });
     } catch (error) {
       next(error);
@@ -119,7 +125,7 @@ export const sittersController = {
 
   async getMyPayout(req, res, next) {
     try {
-      const data = await payoutService.getMyPayout(req.user.id, req.query);
+      const data = await payout.getMyPayout(req.user.id, req.query);
       return res.status(200).json({ data });
     } catch (error) {
       next(error);
@@ -128,7 +134,7 @@ export const sittersController = {
 
   async getMyPayoutBankAccount(req, res, next) {
     try {
-      const data = await payoutBankService.getBankAccount(req.user.id);
+      const data = await payoutBank.getBankAccount(req.user.id);
       return res.status(200).json({ data });
     } catch (error) {
       next(error);
@@ -137,10 +143,7 @@ export const sittersController = {
 
   async updateMyPayoutBankAccount(req, res, next) {
     try {
-      const data = await payoutBankService.updateBankAccount(
-        req.user.id,
-        req.body
-      );
+      const data = await payoutBank.updateBankAccount(req.user.id, req.body);
       return res.status(200).json({ data });
     } catch (error) {
       next(error);
@@ -149,10 +152,7 @@ export const sittersController = {
 
   async uploadMyPayoutBookBankImage(req, res, next) {
     try {
-      const data = await payoutBankService.uploadBookBankImage(
-        req.user.id,
-        req.file
-      );
+      const data = await payoutBank.uploadBookBankImage(req.user.id, req.file);
       return res.status(200).json({ data });
     } catch (error) {
       next(error);
@@ -161,7 +161,7 @@ export const sittersController = {
 
   async updateMyProfile(req, res, next) {
     try {
-      await sittersService.updateMyProfile(req.user.id, {
+      await sitters.updateMyProfile(req.user.id, {
         body: req.body,
         avatarFile: req.files?.imageFile?.[0],
         galleryFiles: req.files?.galleryFiles ?? [],
@@ -171,4 +171,7 @@ export const sittersController = {
       next(error);
     }
   },
-};
+  };
+}
+
+export const sittersController = createSittersController();

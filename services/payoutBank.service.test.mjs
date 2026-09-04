@@ -48,4 +48,68 @@ describe("parseBankAccountPutBody", () => {
       }
     );
   });
+
+  it("TC28 — rejects missing bankCode", () => {
+    assert.throws(
+      () =>
+        parseBankAccountPutBody({
+          accountNumber: "003345347444",
+          accountName: "Jane",
+          bookBankImageUrl: "https://example.com/book.jpg",
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.match(err.message, /bankCode/i);
+        return true;
+      }
+    );
+  });
+
+  it("TC32 — rejects missing accountNumber", () => {
+    assert.throws(
+      () =>
+        parseBankAccountPutBody({
+          bankCode: "SCB",
+          accountName: "Jane",
+          bookBankImageUrl: "https://example.com/book.jpg",
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.match(err.message, /accountNumber is required/);
+        return true;
+      }
+    );
+  });
+
+  it("TC33 — rejects missing accountName", () => {
+    assert.throws(
+      () =>
+        parseBankAccountPutBody({
+          bankCode: "SCB",
+          accountNumber: "003345347444",
+          bookBankImageUrl: "https://example.com/book.jpg",
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.match(err.message, /accountName is required/);
+        return true;
+      }
+    );
+  });
+
+  it("TC34 — rejects missing bookBankImageUrl", () => {
+    assert.throws(
+      () =>
+        parseBankAccountPutBody({
+          bankCode: "SCB",
+          accountNumber: "003345347444",
+          accountName: "Jane Watson",
+        }),
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.match(err.message, /bookBankImageUrl is required/);
+        return true;
+      }
+    );
+  });
 });
