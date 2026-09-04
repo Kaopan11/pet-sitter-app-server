@@ -6,7 +6,7 @@ function buildUpdateQuery(tableName, idColumn, userId, fields) {
   let param = 1;
 
   for (const [column, value] of Object.entries(fields)) {
-    if (value === undefined || value === "") {
+    if (value === undefined) {
       continue;
     }
     columns.push(`${column} = $${param++}`);
@@ -46,6 +46,9 @@ export const sitterProfileMeRepository = {
         sitter_profiles.bank_name,
         sitter_profiles.account_number,
         sitter_profiles.approval_status,
+        sitter_profiles.rejection_reason,
+        sitter_profiles.is_listed,
+        sitter_profiles.pending_profile,
         users.name,
         users.email,
         users.phone,
@@ -129,71 +132,6 @@ export const sitterProfileMeRepository = {
     return rows.length > 0;
   },
 
-  async updateProfile(userId, profile) {
-    const fields = {
-      display_name: profile.display_name,
-      introduction: profile.introduction,
-      my_place: profile.my_place,
-      services: profile.services,
-      experience_years: profile.experience_years,
-      address_detail: profile.address_detail,
-      district: profile.district,
-      sub_district: profile.sub_district,
-      province: profile.province,
-      post_code: profile.post_code,
-      bank_name: profile.bank_name,
-      account_number: profile.account_number,
-    };
-
-    if (profile.latitude !== undefined && profile.latitude !== "") {
-      fields.latitude = Number(profile.latitude);
-    }
-    if (profile.longitude !== undefined && profile.longitude !== "") {
-      fields.longitude = Number(profile.longitude);
-    }
-
-    const query = buildUpdateQuery("sitter_profiles", "user_id", userId, fields);
-
-    if (!query) {
-      return;
-    }
-
-    await connectionPool.query(query.text, query.values);
-  },
-
-  async getNextPhotoSortOrder(userId) {
-    const query = `
-      SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_sort_order
-      FROM sitter_photos
-      WHERE sitter_id = $1
-    `;
-    const { rows } = await connectionPool.query(query, [userId]);
-    return rows[0].next_sort_order;
-  },
-
-  async insertPhoto(userId, photoUrl, sortOrder) {
-    const query = `
-      INSERT INTO sitter_photos (sitter_id, photo_url, sort_order)
-      VALUES ($1, $2, $3)
-    `;
-    await connectionPool.query(query, [userId, photoUrl, sortOrder]);
-  },
-
-  async findPhotoById(userId, photoId) {
-    const { rows } = await connectionPool.query(
-      "SELECT id, photo_url FROM sitter_photos WHERE id = $1 AND sitter_id = $2",
-      [photoId, userId]
-    );
-    return rows[0] ?? null;
-  },
-
-  async deletePhoto(userId, photoId) {
-    await connectionPool.query(
-      "DELETE FROM sitter_photos WHERE id = $1 AND sitter_id = $2",
-      [photoId, userId]
-    );
-  },
-
   async replacePetTypes(userId, petTypeNames) {
     const { rows } = await connectionPool.query(
       "SELECT id FROM pet_types WHERE LOWER(name) = ANY($1::text[])",
@@ -218,5 +156,32 @@ export const sitterProfileMeRepository = {
     }
 
     return rows.length;
+  },
+
+  async savePending(userId, pending, approvalStatus) {
+    await connectionPool.query(
+      `UPDATE sitter_profiles
+       SET pending_profile = $1::jsonb,
+           approval_status = $2,
+           updated_at = NOW()
+       WHERE user_id = $3`,
+      [pending, approvalStatus, userId]
+    );
+  },
+
+  async replacePhotos(userId, photos) {
+    await connectionPool.query(
+      "DELETE FROM sitter_photos WHERE sitter_id = $1",
+      [userId]
+    );
+
+    for (const [index, photo] of photos.entries()) {
+      if (!photo?.photo_url) continue;
+      await connectionPool.query(
+        `INSERT INTO sitter_photos (sitter_id, photo_url, sort_order)
+         VALUES ($1, $2, $3)`,
+        [userId, photo.photo_url, index]
+      );
+    }
   },
 };

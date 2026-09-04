@@ -1,3 +1,17 @@
-node_modules
+# secrets
 .env
-package-lock.json
+.env.local
+.env.*.local
+
+# dependencies
+node_modules
+
+# local dumps (not schema in sql/)
+local-data.sql
+*.dump
+
+# logs / OS junk
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

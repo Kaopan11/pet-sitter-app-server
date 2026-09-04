@@ -5,12 +5,34 @@ function formatPetTypeName(name) {
   return key ? key.charAt(0).toUpperCase() + key.slice(1) : "";
 }
 
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+// คำนวณคะแนนรีวิวเฉลี่ย/จำนวนรีวิวสด ๆ จากตาราง reviews ต่อ sitter หนึ่งคน
+// (lateral join ต่อแถวของ sitter_profiles แต่ละแถว แทนการเก็บค่า cache ไว้ในคอลัมน์)
+const LIVE_REVIEW_STATS = `
+      left join lateral (
+        select
+          coalesce(round(avg(reviews.rating)::numeric, 1), 0) as rating_avg,
+          count(*)::int as review_count
+        from reviews
+        where reviews.sitter_id = sitter_profiles.user_id
+      ) as review_stats on true
+`;
+
+// แปลงแถวข้อมูลดิบจาก DB ให้เป็นรูปแบบ (shape) ที่การ์ด sitter บน landing page ใช้แสดงผล
 function toListItem(row) {
-  const petTypes = Array.isArray(row.pet_types)
-    ? row.pet_types
-    : typeof row.pet_types === "string"
-      ? JSON.parse(row.pet_types)
-      : [];
+  const petTypes = parseJsonArray(row.pet_types);
 
   return {
     id: row.id,
@@ -22,6 +44,8 @@ function toListItem(row) {
     petTypes: petTypes.map((type) => formatPetTypeName(type)).filter(Boolean),
     imageUrl: row.image_url,
     experience: row.experience,
+    latitude: row.latitude != null ? Number(row.latitude) : null,
+    longitude: row.longitude != null ? Number(row.longitude) : null,
   };
 }
 
@@ -46,13 +70,63 @@ export const sitterProfilesRepository = {
       `INSERT INTO public.sitter_profiles (
          user_id, display_name, experience_years, rating_avg, review_count, approval_status
        )
-       VALUES ($1, $2, 0, 0, 0, 'Waiting for approve')
+       VALUES ($1, $2, 0, 0, 0, 'Unverified')
        RETURNING user_id, display_name, approval_status`,
       [userId, displayName]
     );
     return rows[0];
   },
 
+  // ดึงโปรไฟล์ sitter 1 คน พร้อม petTypes[] และรูปภาพ (ใช้สำหรับหน้า Sitter Detail)
+  async findById(sitterId) {
+    const { rows } = await pool.query(
+      `SELECT
+         sp.user_id                                               AS id,
+         sp.display_name,
+         sp.introduction,
+         sp.my_place,
+         sp.services,
+         sp.address_detail,
+         sp.district,
+         sp.sub_district,
+         sp.province,
+         sp.post_code,
+         sp.experience_years,
+         sp.rating_avg,
+         sp.review_count,
+         sp.approval_status,
+         u.name           AS owner_name,
+         u.avatar_url,
+         -- รวม pet_types เป็น array เช่น ["Dog","Cat"]
+         COALESCE(
+           (
+             SELECT json_agg(pt.name ORDER BY pt.name)
+             FROM public.sitter_pet_types spt
+             INNER JOIN public.pet_types pt ON pt.id = spt.pet_type_id
+             WHERE spt.sitter_id = sp.user_id
+           ),
+           '[]'::json
+         )                                                        AS pet_types,
+         -- รวมรูปทั้งหมดเป็น array เรียงตาม sort_order
+         COALESCE(
+           (
+             SELECT json_agg(photo_url ORDER BY sort_order)
+             FROM public.sitter_photos
+             WHERE sitter_id = sp.user_id
+           ),
+           '[]'::json
+         )                                                        AS photos
+       FROM public.sitter_profiles sp
+       INNER JOIN public.users u ON u.id = sp.user_id
+       WHERE sp.user_id = $1`,
+      [sitterId]
+    );
+    return rows[0] ?? null;
+  },
+
+  // Landing page — ค้นหา/กรอง/แบ่งหน้ารายชื่อ sitter ที่เปิดให้จองได้
+  // เงื่อนไข WHERE เดียวกันถูกใช้ซ้ำใน 2 query: ดึงรายการของหน้านี้ (มี LIMIT/OFFSET)
+  // และนับจำนวนทั้งหมด (สำหรับคำนวณ totalPages) เพื่อให้ตัวเลขตรงกันเสมอ
   async findMany({ q, petTypes, rating, experience, pageSize, offset }) {
     const result = await pool.query(
       `
@@ -62,8 +136,10 @@ export const sitterProfilesRepository = {
         users.name as sitter_name,
         users.avatar_url,
         concat_ws(', ', sitter_profiles.district, sitter_profiles.province) as location,
-        round(coalesce(sitter_profiles.rating_avg, 0))::int as rating,
+        round(review_stats.rating_avg)::int as rating,
         sitter_profiles.experience_years as experience,
+        sitter_profiles.latitude,
+        sitter_profiles.longitude,
         (
           select sitter_photos.photo_url
           from sitter_photos
@@ -84,6 +160,12 @@ export const sitterProfilesRepository = {
       from sitter_profiles
       inner join users
       on users.id = sitter_profiles.user_id
+      ${LIVE_REVIEW_STATS}
+      -- $1 = คำค้น (ILIKE ชื่อ/พื้นที่ทุกช่อง), null = ไม่กรอง
+      -- $2 = array ประเภทสัตว์เลี้ยงที่ sitter รับดูแล (any match)
+      -- $3 = array คะแนนรีวิว (ปัดเศษแล้วเทียบ)
+      -- $4 = จำนวนปีประสบการณ์ (เทียบตรง ๆ)
+      -- แสดงเฉพาะ sitter ที่เปิดรับงาน (is_listed/approved) และไม่ถูกแบน
       where (
           sitter_profiles.display_name ilike $1 or
           sitter_profiles.my_place ilike $1 or
@@ -103,20 +185,28 @@ export const sitterProfilesRepository = {
               and lower(pet_types.name) = any($2)
           )
         ) and
-        (sitter_profiles.rating_avg >= $3 or $3 is null) and
-        (sitter_profiles.experience_years = $4 or $4 is null)
-      order by sitter_profiles.rating_avg desc nulls last, sitter_profiles.display_name asc
+        ($3::int[] is null or round(review_stats.rating_avg)::int = any($3)) and
+        (sitter_profiles.experience_years = $4 or $4 is null) and
+        (
+          sitter_profiles.is_listed = true
+          or lower(sitter_profiles.approval_status) = 'approved'
+        ) and
+        coalesce(users.is_banned, false) = false
+      -- เรียงคะแนนสูงสุดก่อน แล้วตามด้วยชื่อ (กันเรียงมั่วเมื่อคะแนนเท่ากัน/ไม่มีรีวิว)
+      order by review_stats.rating_avg desc nulls last, sitter_profiles.display_name asc
       limit $5 offset $6
       `,
       [q, petTypes, rating, experience, pageSize, offset]
     );
 
+    // เงื่อนไข WHERE เดียวกับ query ด้านบน (ไม่มี LIMIT/OFFSET) — ใช้คำนวณ totalPages
     const countResult = await pool.query(
       `
       select count(*)::int as total
       from sitter_profiles
       inner join users
       on users.id = sitter_profiles.user_id
+      ${LIVE_REVIEW_STATS}
       where (
           sitter_profiles.display_name ilike $1 or
           sitter_profiles.my_place ilike $1 or
@@ -136,8 +226,13 @@ export const sitterProfilesRepository = {
               and lower(pet_types.name) = any($2)
           )
         ) and
-        (sitter_profiles.rating_avg >= $3 or $3 is null) and
-        (sitter_profiles.experience_years = $4 or $4 is null)
+        ($3::int[] is null or round(review_stats.rating_avg)::int = any($3)) and
+        (sitter_profiles.experience_years = $4 or $4 is null) and
+        (
+          sitter_profiles.is_listed = true
+          or lower(sitter_profiles.approval_status) = 'approved'
+        ) and
+        coalesce(users.is_banned, false) = false
       `,
       [q, petTypes, rating, experience]
     );
@@ -146,5 +241,76 @@ export const sitterProfilesRepository = {
       rows: result.rows.map(toListItem),
       total: countResult.rows[0]?.total ?? 0,
     };
+  },
+
+  async findPublicById(id) {
+    const { rows } = await pool.query(
+      `
+      select
+        sitter_profiles.user_id as id,
+        coalesce(sitter_profiles.display_name, users.name, 'Pet Sitter') as title,
+        users.name as sitter_name,
+        users.avatar_url,
+        concat_ws(', ', sitter_profiles.district, sitter_profiles.province) as location,
+        round(review_stats.rating_avg)::int as rating,
+        review_stats.rating_avg as rating_avg,
+        review_stats.review_count as review_count,
+        sitter_profiles.experience_years as experience,
+        sitter_profiles.introduction,
+        sitter_profiles.services,
+        sitter_profiles.my_place,
+        sitter_profiles.district,
+        sitter_profiles.sub_district,
+        sitter_profiles.province,
+        sitter_profiles.latitude,
+        sitter_profiles.longitude,
+        (
+          select sitter_photos.photo_url
+          from sitter_photos
+          where sitter_photos.sitter_id = sitter_profiles.user_id
+          order by sitter_photos.sort_order asc
+          limit 1
+        ) as image_url,
+        coalesce(
+          (
+            select json_agg(
+              json_build_object(
+                'id', sitter_photos.id,
+                'photo_url', sitter_photos.photo_url,
+                'sort_order', sitter_photos.sort_order
+              )
+              order by sitter_photos.sort_order
+            )
+            from sitter_photos
+            where sitter_photos.sitter_id = sitter_profiles.user_id
+          ),
+          '[]'::json
+        ) as sitter_photos,
+        coalesce(
+          (
+            select json_agg(pet_types.name order by pet_types.name)
+            from sitter_pet_types
+            inner join pet_types
+            on pet_types.id = sitter_pet_types.pet_type_id
+            where sitter_pet_types.sitter_id = sitter_profiles.user_id
+          ),
+          '[]'::json
+        ) as pet_types
+      from sitter_profiles
+      inner join users
+      on users.id = sitter_profiles.user_id
+      ${LIVE_REVIEW_STATS}
+      where sitter_profiles.user_id = $1
+        and (
+          sitter_profiles.is_listed = true
+          or lower(sitter_profiles.approval_status) = 'approved'
+        )
+        and coalesce(users.is_banned, false) = false
+      limit 1
+      `,
+      [id]
+    );
+
+    return rows[0] ?? null;
   },
 };
