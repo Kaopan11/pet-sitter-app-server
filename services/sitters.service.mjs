@@ -185,6 +185,9 @@ export const sittersService = {
         });
       }
 
+      const latitude = Number(body.latitude);
+      const longitude = Number(body.longitude);
+
       Object.assign(pending, {
         display_name: String(body.display_name).trim(),
         pet_types: petTypes,
@@ -195,6 +198,8 @@ export const sittersService = {
         sub_district: String(body.sub_district).trim(),
         province: String(body.province).trim(),
         post_code: String(body.post_code).trim(),
+        latitude: Number.isFinite(latitude) ? latitude : null,
+        longitude: Number.isFinite(longitude) ? longitude : null,
         photos: [...existingGallery, ...uploadedPhotos],
       });
     }
