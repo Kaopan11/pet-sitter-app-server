@@ -49,6 +49,10 @@ export const bookingsController = {
     }
   },
 
+  // Booking History (list) — อ่าน page/limit/search/status จาก query string,
+  // แปลง status "all" ให้เป็น null (คือไม่กรอง) แล้วให้ service ไปดึงข้อมูลของ
+  // owner คนที่ login อยู่เท่านั้น (req.user.id) จากนั้นคำนวณ totalPages/nextPage
+  // ให้ frontend ใช้ทำปุ่มเปลี่ยนหน้า
   async getOwnerBookings(req, res, next) {
     try {
       const ownerId = req.user.id;
@@ -84,6 +88,8 @@ export const bookingsController = {
     }
   },
 
+  // Booking History (detail) — ดึง booking รายการเดียวแบบละเอียด (รวมข้อมูล pet,
+  // sitter, การชำระเงิน, รีวิว) ของ owner ที่ login อยู่ ใช้เปิดหน้า/ป๊อปอัปรายละเอียด
   async getOwnerBookingById(req, res, next) {
     try {
       const booking = await bookingsService.getOwnerBookingById(
@@ -97,6 +103,9 @@ export const bookingsController = {
     }
   },
 
+  // Booking History — ปุ่ม "ยกเลิก" บนรายการ booking; business rule (เช่น
+  // ยกเลิกได้เฉพาะตอน waiting_confirm, cancel payment intent ของ stripe ถ้าจ่ายด้วยบัตร)
+  // อยู่ใน bookingsService.cancelOwnerBooking ทั้งหมด
   async cancelOwnerBooking(req, res, next) {
     try {
       const cancelled = await bookingsService.cancelOwnerBooking(
@@ -113,6 +122,8 @@ export const bookingsController = {
     }
   },
 
+  // Booking History — ปุ่ม "เลื่อนวัน/เวลา"; ส่ง body (วัน/เวลาใหม่) ต่อให้ service
+  // ตรวจสอบเงื่อนไข (สถานะ, ไม่ชนกับ booking อื่น, ราคาต้องเท่าเดิมถ้าจ่ายผ่าน stripe)
   async rescheduleOwnerBooking(req, res, next) {
     try {
       const rescheduled = await bookingsService.rescheduleOwnerBooking(
@@ -130,6 +141,9 @@ export const bookingsController = {
     }
   },
 
+  // Booking History — ปุ่ม "รีวิว" บน booking ที่จบงานแล้ว
+  // ตรวจ rating เบื้องต้นที่ controller (ต้อง 1-5) ส่วนเงื่อนไขอื่น ๆ (ต้อง success,
+  // ยังไม่เคยรีวิวมาก่อน) ตรวจใน service
   async submitOwnerReview(req, res, next) {
     try {
       const { rating, text } = req.body;
@@ -155,6 +169,7 @@ export const bookingsController = {
     }
   },
 
+  // Booking History — ปุ่ม "แจ้งปัญหา" บน booking รายการหนึ่ง ต้องมี subject เสมอ
   async submitOwnerReport(req, res, next) {
     try {
       const { subject, description } = req.body;

@@ -156,6 +156,8 @@ export const bookingsService = {
     return updated;
   },
 
+  // Booking History (list) — pass-through ไปที่ repository ตรง ๆ ไม่มี business
+  // logic เพิ่มเติม เพราะเป็นแค่การอ่านข้อมูล/ค้นหา/แบ่งหน้า
   async getOwnerBookings(ownerId, search, status, limit, offset) {
     return bookingsRepository.findManyByOwnerId(
       ownerId,
@@ -166,6 +168,8 @@ export const bookingsService = {
     );
   },
 
+  // Booking History (detail) — ดึง booking ทีละรายการ ถ้าไม่เจอ (หรือไม่ใช่ของ
+  // owner คนนี้) ให้ throw 404 แทนที่จะคืน null เพื่อให้ controller ตอบ error ได้ทันที
   async getOwnerBookingById(ownerId, bookingId) {
     const booking = await bookingsRepository.findByIdAndOwnerId(
       ownerId,
@@ -179,6 +183,10 @@ export const bookingsService = {
     return booking;
   },
 
+  // Booking History — ยกเลิก booking ได้เฉพาะตอนที่ sitter ยังไม่ confirm
+  // (waiting_confirm) เพื่อกันไม่ให้ยกเลิกงานที่กำลังดำเนินการอยู่แล้ว
+  // ถ้าจ่ายผ่าน stripe ต้อง cancel payment intent (คืนวงเงินที่ authorize ไว้)
+  // ก่อนเปลี่ยนสถานะ booking แล้วแจ้งเตือน sitter ว่าโดนยกเลิก
   async cancelOwnerBooking(ownerId, bookingId) {
     const booking = await bookingsRepository.findByIdAndOwnerId(
       ownerId,
@@ -217,6 +225,11 @@ export const bookingsService = {
     return updated;
   },
 
+  // Booking History — เลื่อนวัน/เวลา booking ได้เฉพาะตอน waiting_confirm
+  // ขั้นตอน: (1) resolve วัน/เวลาใหม่ (2) เช็คว่าไม่ชนกับ booking อื่นของ sitter คนเดิม
+  // (3) คำนวณราคาใหม่ตามช่วงเวลาที่เปลี่ยน (4) ถ้าจ่ายด้วย stripe ราคาต้องเท่าเดิม
+  // เพราะ payment intent ถูก authorize ไว้ที่ยอดเดิมแล้ว capture ทีหลังไม่สามารถ
+  // เปลี่ยนยอดได้ จึงบล็อกไว้ก่อนแทนที่จะปล่อยให้ยอดเพี้ยน
   async rescheduleOwnerBooking(ownerId, bookingId, body) {
     const booking = await bookingsRepository.findByIdAndOwnerId(
       ownerId,
@@ -290,6 +303,8 @@ export const bookingsService = {
     });
   },
 
+  // Booking History — รีวิวได้เฉพาะ booking ที่จบงานแล้ว (status = success)
+  // และรีวิวได้ครั้งเดียวต่อ booking (กันเขียนซ้ำ)
   async submitReview(ownerId, bookingId, rating, text) {
     const booking = await bookingsRepository.findByIdAndOwnerId(
       ownerId,
@@ -317,6 +332,7 @@ export const bookingsService = {
     });
   },
 
+  // Booking History — แจ้งปัญหาเกี่ยวกับ booking นี้ (ไม่จำกัดสถานะ booking)
   async submitReport(ownerId, bookingId, subject, description) {
     const booking = await bookingsRepository.findByIdAndOwnerId(
       ownerId,
@@ -335,7 +351,14 @@ export const bookingsService = {
     });
   },
 
-  // owner booking — cash | stripe (ไม่เชื่อ totalPrice จาก client)
+  // สร้าง booking ใหม่ (ปุ่ม "จอง" ของ owner) — cash | stripe
+  // (ไม่เชื่อ totalPrice จาก client, คำนวณราคาเองฝั่ง server เสมอ)
+  // ลำดับการตรวจสอบ: payment method ที่รองรับ -> วัน/เวลาที่ขอ -> owner ไม่ถูกแบน
+  // -> ไม่จองตัวเอง -> pet เป็นของ owner จริงและไม่ถูกระงับ -> sitter รับ pet type
+  // นี้ไหม -> โปรไฟล์ owner ครบไหม -> ช่วงเวลาชนกับ booking อื่นของ sitter ไหม
+  // ผ่านหมดแล้วค่อย insert booking+pets+payment ใน transaction เดียว (ดู
+  // bookingsRepository.createBookingWithPets) แล้วถ้าเป็น stripe จะสร้าง
+  // PaymentIntent แบบ manual capture (authorize ไว้ก่อน, capture ตอน sitter confirm)
   async createBooking(owner, body) {
     const {
       sitterId,

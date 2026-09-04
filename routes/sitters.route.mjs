@@ -7,6 +7,8 @@ import bookingsRouter from "./bookings.route.mjs";
 
 const sittersRouter = Router();
 
+// GET /api/sitters — endpoint หลักของหน้า Landing page: ดึงรายชื่อ sitter
+// พร้อมรองรับค้นหา (q), กรอง petTypes/rating/experience และแบ่งหน้า (page, limit)
 sittersRouter.get("/", sittersController.list);
 sittersRouter.get(
   "/me",

@@ -18,6 +18,8 @@ function parseJsonArray(value) {
   return [];
 }
 
+// คำนวณคะแนนรีวิวเฉลี่ย/จำนวนรีวิวสด ๆ จากตาราง reviews ต่อ sitter หนึ่งคน
+// (lateral join ต่อแถวของ sitter_profiles แต่ละแถว แทนการเก็บค่า cache ไว้ในคอลัมน์)
 const LIVE_REVIEW_STATS = `
       left join lateral (
         select
@@ -28,6 +30,7 @@ const LIVE_REVIEW_STATS = `
       ) as review_stats on true
 `;
 
+// แปลงแถวข้อมูลดิบจาก DB ให้เป็นรูปแบบ (shape) ที่การ์ด sitter บน landing page ใช้แสดงผล
 function toListItem(row) {
   const petTypes = parseJsonArray(row.pet_types);
 
@@ -121,6 +124,9 @@ export const sitterProfilesRepository = {
     return rows[0] ?? null;
   },
 
+  // Landing page — ค้นหา/กรอง/แบ่งหน้ารายชื่อ sitter ที่เปิดให้จองได้
+  // เงื่อนไข WHERE เดียวกันถูกใช้ซ้ำใน 2 query: ดึงรายการของหน้านี้ (มี LIMIT/OFFSET)
+  // และนับจำนวนทั้งหมด (สำหรับคำนวณ totalPages) เพื่อให้ตัวเลขตรงกันเสมอ
   async findMany({ q, petTypes, rating, experience, pageSize, offset }) {
     const result = await pool.query(
       `
@@ -155,6 +161,11 @@ export const sitterProfilesRepository = {
       inner join users
       on users.id = sitter_profiles.user_id
       ${LIVE_REVIEW_STATS}
+      -- $1 = คำค้น (ILIKE ชื่อ/พื้นที่ทุกช่อง), null = ไม่กรอง
+      -- $2 = array ประเภทสัตว์เลี้ยงที่ sitter รับดูแล (any match)
+      -- $3 = array คะแนนรีวิว (ปัดเศษแล้วเทียบ)
+      -- $4 = จำนวนปีประสบการณ์ (เทียบตรง ๆ)
+      -- แสดงเฉพาะ sitter ที่เปิดรับงาน (is_listed/approved) และไม่ถูกแบน
       where (
           sitter_profiles.display_name ilike $1 or
           sitter_profiles.my_place ilike $1 or
@@ -181,12 +192,14 @@ export const sitterProfilesRepository = {
           or lower(sitter_profiles.approval_status) = 'approved'
         ) and
         coalesce(users.is_banned, false) = false
+      -- เรียงคะแนนสูงสุดก่อน แล้วตามด้วยชื่อ (กันเรียงมั่วเมื่อคะแนนเท่ากัน/ไม่มีรีวิว)
       order by review_stats.rating_avg desc nulls last, sitter_profiles.display_name asc
       limit $5 offset $6
       `,
       [q, petTypes, rating, experience, pageSize, offset]
     );
 
+    // เงื่อนไข WHERE เดียวกับ query ด้านบน (ไม่มี LIMIT/OFFSET) — ใช้คำนวณ totalPages
     const countResult = await pool.query(
       `
       select count(*)::int as total

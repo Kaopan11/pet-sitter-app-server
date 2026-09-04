@@ -178,6 +178,9 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  // Booking History (list) — booking ทั้งหมดของ owner คนนี้ พร้อมชื่อ/รูป sitter,
+  // รายชื่อ pet ที่พารวมกัน, และรีวิวที่เคยให้ (ถ้ามี) เพื่อโชว์บนหน้ารายการ
+  // ทำ 2 query: นับจำนวนทั้งหมดที่ตรงเงื่อนไข (สำหรับ pagination) แล้วค่อยดึงรายการจริง
   async findManyByOwnerId(ownerId, search, status, limit, offset) {
     const { rows: countRows } = await connectionPool.query(
       `
@@ -241,6 +244,9 @@ export const bookingsRepository = {
     };
   },
 
+  // Booking History (detail) — booking รายการเดียว พร้อมข้อมูล sitter, รายชื่อ pet
+  // ที่พาไป, สถานะการชำระเงิน และรีวิวที่เคยให้ (ถ้ามี) สำหรับหน้ารายละเอียด
+  // WHERE ผูกทั้ง id และ owner_id เพื่อกัน owner คนอื่นดู booking ที่ไม่ใช่ของตัวเอง
   async findByIdAndOwnerId(ownerId, bookingId) {
     const { rows } = await connectionPool.query(
       `
@@ -352,6 +358,8 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  // ใช้โดย cancelOwnerBooking — เปลี่ยนสถานะ booking (เช่น -> 'cancelled')
+  // WHERE ผูก owner_id ด้วย เพื่อกันแก้ booking ของ owner คนอื่น
   async updateStatusByIdAndOwnerId(ownerId, bookingId, status) {
     const { rows } = await connectionPool.query(
       `
@@ -368,6 +376,8 @@ export const bookingsRepository = {
     return rows[0] ?? null;
   },
 
+  // ใช้โดย rescheduleOwnerBooking — อัปเดตวัน/เวลา/ระยะเวลา/ราคาของ booking เดิม
+  // (ราคาถูกคำนวณใหม่โดย service ก่อนเรียกมาที่นี่แล้ว)
   async updateScheduleByIdAndOwnerId(
     ownerId,
     bookingId,
@@ -511,6 +521,8 @@ export const bookingsRepository = {
     }
   },
 
+  // เก็บ Stripe PaymentIntent id ไว้ที่ payments.payment_token หลังสร้าง booking
+  // แบบจ่ายบัตร เพื่อใช้ capture/cancel payment ในภายหลัง
   async updatePaymentTokenByBookingId(bookingId, paymentToken) {
     const { rows } = await connectionPool.query(
       `
