@@ -203,14 +203,14 @@ export const adminSittersService = {
 
     if (current === "Waiting for verify") {
       const updated = await adminSittersRepository.updateStatus(sitterId, {
-        approvalStatus: "Unverified",
+        approvalStatus: "Rejected",
         isListed: false,
         clearPending: false,
         rejectionReason: note,
       });
       await notificationsService.notifySitterApprovalStatus(
         sitterId,
-        "Unverified"
+        "Rejected"
       );
       return updated;
     }

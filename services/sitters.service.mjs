@@ -121,7 +121,7 @@ export const sittersService = {
       throw httpError(404, "Sitter profile not found");
     }
 
-    const fullProfileUnlocked = isFullProfileUnlocked(profile.approval_status);
+    const fullProfileUnlocked = isFullProfileUnlocked(profile.approval_status, profile);
 
     if (fullProfileUnlocked) {
       validateSitterProfileBody(body);
@@ -207,7 +207,7 @@ export const sittersService = {
     await sitterProfileMeRepository.savePending(
       userId,
       pending,
-      nextStatusAfterUpdate(profile.approval_status)
+      nextStatusAfterUpdate(profile.approval_status, profile)
     );
   },
 };
