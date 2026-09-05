@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node app.mjs",
     "dev": "nodemon app.mjs",
-    "test": "node --test utils/**/*.test.mjs services/**/*.test.mjs"
+    "test": "node --test --experimental-test-module-mocks utils/**/*.test.mjs services/**/*.test.mjs"
   },
   "repository": {
     "type": "git",
@@ -29,6 +29,10 @@
     "multer": "^2.2.0",
     "nodemon": "^3.1.14",
     "pg": "^8.23.0",
-    "stripe": "^22.5.0"
+    "stripe": "^22.5.0",
+    "vitest": "^5.0.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2"
   }
 }
