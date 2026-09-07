@@ -10,6 +10,9 @@ node_modules
 local-data.sql
 *.dump
 
+# local notes (not shared)
+learning/
+
 # logs / OS junk
 *.log
 npm-debug.log*
