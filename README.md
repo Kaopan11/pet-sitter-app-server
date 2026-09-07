@@ -232,6 +232,8 @@ Base URL: `http://localhost:4000` (local) · `https://pet-sitter-app-server.onre
 
 > **Auth column:** `—` = public · `Bearer` = logged-in user · `Sitter` = requires sitter profile · `Admin` = requires `isAdmin`
 
+Interactive docs: [http://localhost:4000/api-docs](http://localhost:4000/api-docs) (local) · [https://pet-sitter-app-server.onrender.com/api-docs](https://pet-sitter-app-server.onrender.com/api-docs) (production)
+
 ### Health
 
 | Method | Path | Auth | Description |
