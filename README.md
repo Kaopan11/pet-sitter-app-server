@@ -24,6 +24,7 @@
 - [Authentication](#-authentication)
 - [API Reference](#-api-reference)
 - [Integration with Frontend](#-integration-with-frontend)
+- [API Documentation (Swagger)](#-api-documentation-swagger)
 - [Deployment](#-deployment)
 - [Testing](#-testing)
 - [Known Limitations](#-known-limitations)
@@ -231,6 +232,8 @@ Base URL: `http://localhost:4000` (local) · `https://pet-sitter-app-server.onre
 
 > **Auth column:** `—` = public · `Bearer` = logged-in user · `Sitter` = requires sitter profile · `Admin` = requires `isAdmin`
 
+Interactive docs: [http://localhost:4000/api-docs](http://localhost:4000/api-docs) (local) · [https://pet-sitter-app-server.onrender.com/api-docs](https://pet-sitter-app-server.onrender.com/api-docs) (production)
+
 ### Health
 
 | Method | Path | Auth | Description |
@@ -382,6 +385,20 @@ Base URL: `http://localhost:4000` (local) · `https://pet-sitter-app-server.onre
 
 ---
 
+## 📘 API Documentation (Swagger)
+
+Interactive OpenAPI docs are served by Swagger UI at **`/api-docs`**.
+
+Specs are generated from `@openapi` comments in `routes/*.mjs` (`swagger-jsdoc` + `swagger-ui-express`).
+
+### Run locally
+
+```bash
+npm install
+npm run dev
+
+---
+
 ## 🚢 Deployment
 
 **Platform:** [Render](https://render.com) — `pet-sitter-app-server.onrender.com`
@@ -410,7 +427,6 @@ Runs unit/integration tests under `utils/**/*.test.mjs` and `services/**/*.test.
 
 - **`GET /api/reports`** — No admin auth yet (marked TODO in routes)
 - **`GET /api/users`** — Public list endpoint (consider restricting in production)
-- **No OpenAPI/Swagger UI** — API documented in this README
 - **Dual DB pool config** — `repositories/db.mjs` vs `utils/db.mjs` (both use `DATABASE_URL`)
 
 ---

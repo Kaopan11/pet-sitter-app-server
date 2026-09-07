@@ -13,6 +13,10 @@ import stripeWebhookRouter from "./routes/stripeWebhook.route.mjs";
 import reportsRouter from "./routes/reports.rout.mjs";
 import notificationsRouter from "./routes/notifications.route.mjs";
 import { startChatListener } from "./services/chatEvents.mjs";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./swagger.mjs";
+
+
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -52,6 +56,9 @@ app.use("/api/conversations", chatRouter); // owner–sitter chat
 app.use("/api/bookings", ownerBookingsRouter); // owner booking history + create (cash | stripe)
 app.use("/api/reports", reportsRouter); //use for admin get report
 app.use("/api/notifications", notificationsRouter);
+
+//for api documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "API is working" });
