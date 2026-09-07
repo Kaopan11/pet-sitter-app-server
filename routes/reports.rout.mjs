@@ -3,7 +3,16 @@ import { reportsController } from "../controllers/reports.controller.mjs";
 
 const reportsRouter = Router();
 
-// Temporary: no auth until admin login exists. Add requireAuth + requireAdmin later.
+/**
+ * @openapi
+ * /api/reports:
+ *   get:
+ *     summary: List all reports
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: Report list
+ */
 reportsRouter.get("/", reportsController.list);
 reportsRouter.get("/:id", reportsController.getById);
 reportsRouter.patch("/:id/status", reportsController.updateStatus);

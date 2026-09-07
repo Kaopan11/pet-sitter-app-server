@@ -33,6 +33,21 @@ function uploadOwnerAvatar(req, res, next) {
 const usersRouter = Router();
 
 usersRouter.get("/", usersController.getAllUsers);
+
+/**
+ * @openapi
+ * /api/users/me:
+ *   get:
+ *     summary: Get logged-in owner profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user
+ *       401:
+ *         description: Unauthorized
+ */
 usersRouter.get("/me", requireAuth, usersController.getMe);
 // booking Day 0 — สัตว์ของ owner ที่ login
 usersRouter.get("/me/pets", requireAuth, usersController.getMyPets);
