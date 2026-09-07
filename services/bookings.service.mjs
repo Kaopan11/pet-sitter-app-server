@@ -61,9 +61,20 @@ function parsePetTypes(value) {
   return [];
 }
 
-export const bookingsService = {
+export function createBookingsService({
+  bookingsRepository: bookingsRepo = bookingsRepository,
+  petsRepository: petsRepo = petsRepository,
+  sitterProfilesRepository: sitterProfilesRepo = sitterProfilesRepository,
+  reviewsRepository: reviewsRepo = reviewsRepository,
+  reportsRepository: reportsRepo = reportsRepository,
+  getStripe: getStripeFn = getStripe,
+  captureStripePaymentIntent: captureStripe = captureStripePaymentIntent,
+  cancelStripePaymentIntent: cancelStripe = cancelStripePaymentIntent,
+  notificationsService: notifications = notificationsService,
+} = {}) {
+  return {
   async getMyBookings(sitterId, search, status, limit, offset) {
-    return bookingsRepository.findManyBySitterId(
+    return bookingsRepo.findManyBySitterId(
       sitterId,
       search,
       status,
@@ -73,7 +84,7 @@ export const bookingsService = {
   },
 
   async getMyBookingById(sitterId, bookingId) {
-    const booking = await bookingsRepository.findByIdAndSitterId(
+    const booking = await bookingsRepo.findByIdAndSitterId(
       sitterId,
       bookingId
     );
@@ -86,7 +97,7 @@ export const bookingsService = {
   },
 
   async updateMyBookingStatus(sitterId, bookingId, nextStatus) {
-    const booking = await bookingsRepository.findByIdAndSitterId(
+    const booking = await bookingsRepo.findByIdAndSitterId(
       sitterId,
       bookingId
     );
@@ -107,7 +118,7 @@ export const bookingsService = {
         nextStatus,
       })
     ) {
-      await cancelStripePaymentIntent(booking.payment_token);
+      await cancelStripe(booking.payment_token);
     }
 
     // T03 — capture ก่อนเปลี่ยน status (fail แล้วไม่อัปเดต booking)
@@ -117,10 +128,10 @@ export const bookingsService = {
         nextStatus,
       })
     ) {
-      await captureStripePaymentIntent(booking.payment_token);
+      await captureStripe(booking.payment_token);
     }
 
-    const updated = await bookingsRepository.updateStatusByIdAndSitterId(
+    const updated = await bookingsRepo.updateStatusByIdAndSitterId(
       sitterId,
       bookingId,
       nextStatus
@@ -128,7 +139,7 @@ export const bookingsService = {
 
     const ownerId = booking.owner_id ?? booking.pet_owner?.id;
     if (nextStatus === "waiting_service" && ownerId) {
-      await notificationsService.notifyOwnerBookingConfirmed({
+      await notifications.notifyOwnerBookingConfirmed({
         ownerId,
         sitterId,
         bookingId: booking.id,
@@ -136,7 +147,7 @@ export const bookingsService = {
     }
 
     if (nextStatus === "cancelled" && ownerId) {
-      await notificationsService.notifyOwnerSitterCancelled({
+      await notifications.notifyOwnerSitterCancelled({
         ownerId: booking.owner_id,
         sitterId,
         bookingId: booking.id,
@@ -150,7 +161,7 @@ export const bookingsService = {
         nextStatus,
       })
     ) {
-      await bookingsRepository.markPaymentPaidByBookingId(bookingId);
+      await bookingsRepo.markPaymentPaidByBookingId(bookingId);
     }
 
     return updated;
@@ -159,7 +170,7 @@ export const bookingsService = {
   // Booking History (list) — pass-through ไปที่ repository ตรง ๆ ไม่มี business
   // logic เพิ่มเติม เพราะเป็นแค่การอ่านข้อมูล/ค้นหา/แบ่งหน้า
   async getOwnerBookings(ownerId, search, status, limit, offset) {
-    return bookingsRepository.findManyByOwnerId(
+    return bookingsRepo.findManyByOwnerId(
       ownerId,
       search,
       status,
@@ -171,7 +182,7 @@ export const bookingsService = {
   // Booking History (detail) — ดึง booking ทีละรายการ ถ้าไม่เจอ (หรือไม่ใช่ของ
   // owner คนนี้) ให้ throw 404 แทนที่จะคืน null เพื่อให้ controller ตอบ error ได้ทันที
   async getOwnerBookingById(ownerId, bookingId) {
-    const booking = await bookingsRepository.findByIdAndOwnerId(
+    const booking = await bookingsRepo.findByIdAndOwnerId(
       ownerId,
       bookingId
     );
@@ -188,7 +199,7 @@ export const bookingsService = {
   // ถ้าจ่ายผ่าน stripe ต้อง cancel payment intent (คืนวงเงินที่ authorize ไว้)
   // ก่อนเปลี่ยนสถานะ booking แล้วแจ้งเตือน sitter ว่าโดนยกเลิก
   async cancelOwnerBooking(ownerId, bookingId) {
-    const booking = await bookingsRepository.findByIdAndOwnerId(
+    const booking = await bookingsRepo.findByIdAndOwnerId(
       ownerId,
       bookingId
     );
@@ -207,16 +218,16 @@ export const bookingsService = {
         nextStatus: "cancelled",
       })
     ) {
-      await cancelStripePaymentIntent(booking.payment_token);
+      await cancelStripe(booking.payment_token);
     }
 
-    const updated = await bookingsRepository.updateStatusByIdAndOwnerId(
+    const updated = await bookingsRepo.updateStatusByIdAndOwnerId(
       ownerId,
       bookingId,
       "cancelled"
     );
 
-    await notificationsService.notifySitterOwnerCancelled({
+    await notifications.notifySitterOwnerCancelled({
       ownerId,
       sitterId: booking.sitter_id,
       bookingId: booking.id,
@@ -231,7 +242,7 @@ export const bookingsService = {
   // เพราะ payment intent ถูก authorize ไว้ที่ยอดเดิมแล้ว capture ทีหลังไม่สามารถ
   // เปลี่ยนยอดได้ จึงบล็อกไว้ก่อนแทนที่จะปล่อยให้ยอดเพี้ยน
   async rescheduleOwnerBooking(ownerId, bookingId, body) {
-    const booking = await bookingsRepository.findByIdAndOwnerId(
+    const booking = await bookingsRepo.findByIdAndOwnerId(
       ownerId,
       bookingId
     );
@@ -255,7 +266,7 @@ export const bookingsService = {
       endTime: body?.endTime,
     });
 
-    const overlapping = await bookingsRepository.hasOverlappingBooking({
+    const overlapping = await bookingsRepo.hasOverlappingBooking({
       sitterId: booking.sitter_id,
       startDate,
       endDate,
@@ -292,7 +303,7 @@ export const bookingsService = {
       );
     }
 
-    return bookingsRepository.updateScheduleByIdAndOwnerId(ownerId, bookingId, {
+    return bookingsRepo.updateScheduleByIdAndOwnerId(ownerId, bookingId, {
       startDate,
       endDate,
       startTime,
@@ -306,7 +317,7 @@ export const bookingsService = {
   // Booking History — รีวิวได้เฉพาะ booking ที่จบงานแล้ว (status = success)
   // และรีวิวได้ครั้งเดียวต่อ booking (กันเขียนซ้ำ)
   async submitReview(ownerId, bookingId, rating, text) {
-    const booking = await bookingsRepository.findByIdAndOwnerId(
+    const booking = await bookingsRepo.findByIdAndOwnerId(
       ownerId,
       bookingId
     );
@@ -323,7 +334,7 @@ export const bookingsService = {
       throw httpError(409, "Booking already reviewed");
     }
 
-    return reviewsRepository.create({
+    return reviewsRepo.create({
       bookingId,
       ownerId,
       sitterId: booking.sitter_id,
@@ -334,7 +345,7 @@ export const bookingsService = {
 
   // Booking History — แจ้งปัญหาเกี่ยวกับ booking นี้ (ไม่จำกัดสถานะ booking)
   async submitReport(ownerId, bookingId, subject, description) {
-    const booking = await bookingsRepository.findByIdAndOwnerId(
+    const booking = await bookingsRepo.findByIdAndOwnerId(
       ownerId,
       bookingId
     );
@@ -343,7 +354,7 @@ export const bookingsService = {
       throw httpError(404, "Booking not found");
     }
 
-    return reportsRepository.create({
+    return reportsRepo.create({
       bookingId,
       reporterId: ownerId,
       subject,
@@ -400,12 +411,12 @@ export const bookingsService = {
       petCount: petIds.length,
     });
 
-    const sitter = await sitterProfilesRepository.findPublicById(sitterId);
+    const sitter = await sitterProfilesRepo.findPublicById(sitterId);
     if (!sitter) {
       throw httpError(404, "Sitter profile not found");
     }
 
-    const pets = await petsRepository.findManyByIds(petIds, owner.id);
+    const pets = await petsRepo.findManyByIds(petIds, owner.id);
     if (pets.length !== petIds.length) {
       throw httpError(400, "One or more pets do not belong to you");
     }
@@ -429,7 +440,7 @@ export const bookingsService = {
       throw httpError(400, "Please complete your profile before booking");
     }
 
-    const overlapping = await bookingsRepository.hasOverlappingBooking({
+    const overlapping = await bookingsRepo.hasOverlappingBooking({
       sitterId,
       startDate,
       endDate,
@@ -448,7 +459,7 @@ export const bookingsService = {
         ? message.trim()
         : null;
 
-    const created = await bookingsRepository.createBookingWithPets({
+    const created = await bookingsRepo.createBookingWithPets({
       ownerId: owner.id,
       sitterId,
       startDate,
@@ -466,7 +477,7 @@ export const bookingsService = {
       petIds,
     });
 
-    await notificationsService.notifyOwnerHiredSitter({
+    await notifications.notifyOwnerHiredSitter({
       ownerId: owner.id,
       sitterId,
       bookingId: created.bookingId,
@@ -476,7 +487,7 @@ export const bookingsService = {
       return created;
     }
 
-    const paymentIntent = await getStripe().paymentIntents.create({
+    const paymentIntent = await getStripeFn().paymentIntents.create({
       amount: toStripeAmount(created.totalPrice),
       currency: "thb",
       capture_method: "manual", // T03 — authorize ตอนจอง, capture ตอน sitter Confirm
@@ -484,7 +495,7 @@ export const bookingsService = {
       metadata: { bookingId: String(created.bookingId) },
     });
 
-    await bookingsRepository.updatePaymentTokenByBookingId(
+    await bookingsRepo.updatePaymentTokenByBookingId(
       created.bookingId,
       paymentIntent.id
     );
@@ -494,4 +505,7 @@ export const bookingsService = {
       clientSecret: paymentIntent.client_secret,
     };
   },
-};
+  };
+}
+
+export const bookingsService = createBookingsService();

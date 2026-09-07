@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node app.mjs",
     "dev": "nodemon app.mjs",
-    "test": "node --test utils/**/*.test.mjs services/**/*.test.mjs"
+    "test": "node --test utils/**/*.test.mjs services/**/*.test.mjs && vitest run",
+    "test:booking": "vitest run",
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -30,5 +32,9 @@
     "nodemon": "^3.1.14",
     "pg": "^8.23.0",
     "stripe": "^22.5.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^5.0.0",
+    "vitest": "^5.0.0"
   }
 }
