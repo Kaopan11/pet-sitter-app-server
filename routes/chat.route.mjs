@@ -39,7 +39,37 @@ function uploadChatImage(req, res, next) {
 chatRouter.use(requireAuth);
 
 chatRouter.post("/", chatController.createConversation);
+
+/**
+ * @openapi
+ * /api/conversations:
+ *   get:
+ *     summary: List my conversations
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Conversation list
+ *       401:
+ *         description: Unauthorized
+ */
 chatRouter.get("/", chatController.listConversations);
+
+/**
+ * @openapi
+ * /api/conversations/events:
+ *   get:
+ *     summary: Subscribe to chat events (SSE)
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Server-sent events stream
+ *       401:
+ *         description: Unauthorized
+ */
 chatRouter.get("/events", chatController.streamEvents);
 chatRouter.get("/:id/messages", chatController.listMessages);
 chatRouter.post("/:id/messages", uploadChatImage, chatController.sendMessage);

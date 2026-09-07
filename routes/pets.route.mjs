@@ -51,10 +51,147 @@ function uploadPetAvatar(req, res, next) {
 
 const petsRouter = Router();
 
+/**
+ * @openapi
+ * /api/pets:
+ *   get:
+ *     summary: Get my pets
+ *     tags: [Pets]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Pet list
+ *       401:
+ *         description: Unauthorized
+ */
 petsRouter.get("/", requireAuth, petsController.getMyPets);
+
+/**
+ * @openapi
+ * /api/pets:
+ *   post:
+ *     summary: Create a pet
+ *     tags: [Pets]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               pet_type:
+ *                 type: string
+ *                 example: Dog
+ *               breed:
+ *                 type: string
+ *               sex:
+ *                 type: string
+ *                 example: Male
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Pet created
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
 petsRouter.post("/", uploadPetAvatar, requireAuth, petsController.createPet);
+
+/**
+ * @openapi
+ * /api/pets/{id}:
+ *   get:
+ *     summary: Get a pet by id
+ *     tags: [Pets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Pet detail
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Pet not found
+ */
 petsRouter.get("/:id", requireAuth, petsController.getPetById);
+
+/**
+ * @openapi
+ * /api/pets/{id}:
+ *   put:
+ *     summary: Update a pet
+ *     tags: [Pets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Pet updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Pet not found
+ */
 petsRouter.put("/:id", uploadPetAvatar, requireAuth, petsController.updatePet);
+
+/**
+ * @openapi
+ * /api/pets/{id}:
+ *   delete:
+ *     summary: Delete a pet
+ *     tags: [Pets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Pet deleted
+ *       400:
+ *         description: Pet is used in a booking
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Pet not found
+ */
 petsRouter.delete("/:id", requireAuth, petsController.deletePet);
 
 export default petsRouter;
