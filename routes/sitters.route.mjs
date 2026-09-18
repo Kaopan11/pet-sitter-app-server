@@ -70,12 +70,29 @@ sittersRouter.get("/", sittersController.list);
  *         description: Unauthorized
  *       403:
  *         description: Not a sitter
+ *   put:
+ *     summary: Update my sitter profile
+ *     tags: [Sitters]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sitter profile updated
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Not a sitter
  */
 sittersRouter.get(
   "/me",
   requireAuth,
   requireSitter,
   sittersController.getMyProfile
+);
+sittersRouter.put(
+  "/me",
+  [uploadSitterImages, requireAuth, requireSitter],
+  sittersController.updateMyProfile
 );
 
 /**
@@ -203,11 +220,6 @@ sittersRouter.post(
   "/me/payout/book-bank-image",
   [uploadBookBankImage, requireAuth, requireSitter],
   sittersController.uploadMyPayoutBookBankImage
-);
-sittersRouter.put(
-  "/me",
-  [uploadSitterImages, requireAuth, requireSitter],
-  sittersController.updateMyProfile
 );
 
 sittersRouter.use("/bookings", bookingsRouter);

@@ -1,31 +1,5 @@
 import connectionPool from "../utils/db.mjs";
 
-function buildUpdateQuery(tableName, idColumn, userId, fields) {
-  const columns = [];
-  const values = [];
-  let param = 1;
-
-  for (const [column, value] of Object.entries(fields)) {
-    if (value === undefined) {
-      continue;
-    }
-    columns.push(`${column} = $${param++}`);
-    values.push(value);
-  }
-
-  if (columns.length === 0) {
-    return null;
-  }
-
-  columns.push("updated_at = now()");
-  values.push(userId);
-
-  return {
-    text: `UPDATE ${tableName} SET ${columns.join(", ")} WHERE ${idColumn} = $${param}`,
-    values,
-  };
-}
-
 export const sitterProfileMeRepository = {
   async findByUserId(userId) {
     const query = `
@@ -91,23 +65,6 @@ export const sitterProfileMeRepository = {
     `;
     const { rows } = await connectionPool.query(query, [userId]);
     return rows[0] ?? null;
-  },
-
-  async updateUser(userId, { name, email, phone, avatarUrl, dateOfBirth, idNumber }) {
-    const query = buildUpdateQuery("users", "id", userId, {
-      name,
-      email,
-      phone,
-      avatar_url: avatarUrl,
-      date_of_birth: dateOfBirth,
-      id_number: idNumber,
-    });
-
-    if (!query) {
-      return;
-    }
-
-    await connectionPool.query(query.text, query.values);
   },
 
   async isPhoneTaken(phone, excludeUserId) {

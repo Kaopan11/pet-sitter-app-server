@@ -14,26 +14,13 @@ import {
 } from "../utils/pendingProfile.mjs";
 import { uploadImageFile } from "../utils/supabaseImageUpload.mjs";
 
-function parseExistingGallery(raw, livePhotos) {
-  if (raw == null || raw === "") {
-    return (livePhotos ?? []).map((photo) => ({
-      id: photo.id,
-      photo_url: photo.photo_url,
-    }));
-  }
+function parseExistingGallery(existingGallery, pendingGallery) {
+  const source = existingGallery
+    ? JSON.parse(existingGallery)
+    : (pendingGallery ?? []);
 
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((photo) => photo?.photo_url)
-      .map((photo) => ({
-        id: photo.id,
-        photo_url: photo.photo_url,
-      }));
-  } catch {
-    return [];
-  }
+  if (!Array.isArray(source)) return [];
+  return source.filter((photo) => photo?.photo_url);
 }
 
 export const sittersService = {
