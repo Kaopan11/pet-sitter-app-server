@@ -122,6 +122,29 @@ export const adminSittersRepository = {
     return rows[0] ?? null;
   },
 
+  async updateUser(userId, user) {
+    await connectionPool.query(
+      `UPDATE users
+       SET name = $1,
+           email = $2,
+           phone = $3,
+           avatar_url = $4,
+           date_of_birth = $5,
+           id_number = $6,
+           updated_at = NOW()
+       WHERE id = $7`,
+      [
+        user.name,
+        user.email,
+        user.phone,
+        user.avatar_url,
+        user.date_of_birth,
+        user.id_number,
+        userId,
+      ]
+    );
+  },
+
   async updateProfile(userId, profile) {
     await connectionPool.query(
       `UPDATE sitter_profiles

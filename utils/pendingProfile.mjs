@@ -27,8 +27,6 @@ export function overlayPending(row) {
   const pending = row?.pending_profile;
   if (!pending) return row;
 
-  const asObjects = Array.isArray(row.sitter_photos);
-
   return {
     ...row,
     name: pending.full_name ?? row.name,
@@ -58,9 +56,7 @@ export function overlayPending(row) {
         photo_url: photo.photo_url,
       })) ?? row.sitter_photos,
     pet_types: pending.pet_types
-      ? asObjects
-        ? pending.pet_types.map((name, index) => ({ id: index, name }))
-        : pending.pet_types
+      ? pending.pet_types.map((name, index) => ({ id: index, name }))
       : row.pet_types,
   };
 }

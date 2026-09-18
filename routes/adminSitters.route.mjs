@@ -38,13 +38,13 @@ const adminSittersRouter = Router();
  *       403:
  *         description: Not an admin
  */
-adminSittersRouter.get("/", adminSittersController.list);
-adminSittersRouter.get("/:id/bookings", adminSittersController.listBookings);
-adminSittersRouter.get("/:id/bookings/:bookingId", adminSittersController.getBookingById);
-adminSittersRouter.get("/:id/reviews", adminSittersController.listReviews);
-adminSittersRouter.patch("/:id/reviews/:reviewId", adminSittersController.approveReview);
-adminSittersRouter.delete("/:id/reviews/:reviewId", adminSittersController.deleteReview);
-adminSittersRouter.get("/:id", adminSittersController.getById);
-adminSittersRouter.patch("/:id/status", adminSittersController.updateStatus);
+adminSittersRouter.get("/", adminSittersController.list);   // sitter list
+adminSittersRouter.get("/:id", adminSittersController.getById);   // sitter detail
+adminSittersRouter.patch("/:id/status", adminSittersController.updateStatus);   // update sitter status
+adminSittersRouter.get("/:id/bookings", adminSittersController.listBookings);   // sitter bookings
+adminSittersRouter.get("/:id/bookings/:bookingId", adminSittersController.getBookingById);   // sitter booking detail
+adminSittersRouter.get("/:id/reviews", adminSittersController.listReviews);   // sitter reviews
+adminSittersRouter.patch("/:id/reviews/:reviewId", adminSittersController.approveReview);   // approve sitter review
+adminSittersRouter.delete("/:id/reviews/:reviewId", adminSittersController.deleteReview);   // delete sitter review
 
 export default adminSittersRouter;
