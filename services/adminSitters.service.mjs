@@ -19,13 +19,14 @@ async function applyPendingProfile(userId, pending) {
     .trim()
     .toLowerCase();
 
-  await sitterProfileMeRepository.updateUser(userId, {
+  // เอา pending ของกล่อง 1 ขึ้นมาแทนของจริงในตาราง users
+  await adminSittersRepository.updateUser(userId, {
     name: pending.full_name ?? current.name,
     email,
     phone: pending.phone ?? current.phone,
-    dateOfBirth: pending.date_of_birth ?? current.date_of_birth,
-    idNumber: pending.id_number ?? current.id_number,
-    avatarUrl: pending.avatar_url ?? current.avatar_url,
+    avatar_url: pending.avatar_url ?? current.avatar_url,
+    date_of_birth: pending.date_of_birth ?? current.date_of_birth,
+    id_number: pending.id_number ?? current.id_number,
   });
 
   if (email && email !== String(current.email ?? "").toLowerCase()) {
@@ -37,6 +38,7 @@ async function applyPendingProfile(userId, pending) {
     }
   }
 
+  // เอา pending ของกล่อง 2-3 ขึ้นมาแทนของจริงในตาราง sitter_profiles
   await adminSittersRepository.updateProfile(userId, {
     display_name: pending.display_name ?? current.display_name,
     introduction:
@@ -68,60 +70,43 @@ async function applyPendingProfile(userId, pending) {
   }
 }
 
+async function getSitterOrThrow(sitterId) {
+  const sitter = await adminSittersRepository.findById(sitterId);
+  if (!sitter) {
+    throw httpError(404, "Sitter not found");
+  }
+  return sitter;
+}
+
 export const adminSittersService = {
   async list(search, status, limit, offset) {
     return adminSittersRepository.findMany(search, status, limit, offset);
   },
 
   async getById(sitterId) {
-    const sitter = await adminSittersRepository.findById(sitterId);
-
-    if (!sitter) {
-      throw httpError(404, "Sitter not found");
-    }
-
+    const sitter = await getSitterOrThrow(sitterId);
     return overlayPending(sitter);
   },
 
   // มี bookingsService + repository อยู่แล้วของ sitter เลยหยิบมาใช้ได้เลย
   async listBookings(sitterId, search, status, limit, offset) {
-    const sitter = await adminSittersRepository.findById(sitterId);
-
-    if (!sitter) {
-      throw httpError(404, "Sitter not found");
-    }
-
+    await getSitterOrThrow(sitterId);
     return bookingsService.getMyBookings(sitterId, search, status, limit, offset);
   },
 
   // มี bookingsService + repository อยู่แล้วของ sitter เลยหยิบมาใช้ได้เลย
   async getBookingById(sitterId, bookingId) {
-    const sitter = await adminSittersRepository.findById(sitterId);
-
-    if (!sitter) {
-      throw httpError(404, "Sitter not found");
-    }
-
+    await getSitterOrThrow(sitterId);
     return bookingsService.getMyBookingById(sitterId, bookingId);
   },
 
   async listReviews(sitterId, limit, offset) {
-    const sitter = await adminSittersRepository.findById(sitterId);
-
-    if (!sitter) {
-      throw httpError(404, "Sitter not found");
-    }
-
+    await getSitterOrThrow(sitterId);
     return reviewsRepository.findPendingBySitterId(sitterId, limit, offset);
   },
 
   async approveReview(sitterId, reviewId) {
-    const sitter = await adminSittersRepository.findById(sitterId);
-
-    if (!sitter) {
-      throw httpError(404, "Sitter not found");
-    }
-
+    await getSitterOrThrow(sitterId);
     const approved = await reviewsRepository.approveByIdAndSitterId(
       sitterId,
       reviewId
@@ -133,12 +118,7 @@ export const adminSittersService = {
   },
 
   async deleteReview(sitterId, reviewId) {
-    const sitter = await adminSittersRepository.findById(sitterId);
-
-    if (!sitter) {
-      throw httpError(404, "Sitter not found");
-    }
-
+    await getSitterOrThrow(sitterId);
     const deleted = await reviewsRepository.deletePendingByIdAndSitterId(
       sitterId,
       reviewId
@@ -154,10 +134,7 @@ export const adminSittersService = {
       throw httpError(400, "Invalid approval status");
     }
 
-    const sitter = await adminSittersRepository.findById(sitterId);
-    if (!sitter) {
-      throw httpError(404, "Sitter not found");
-    }
+    const sitter = await getSitterOrThrow(sitterId);
 
     const current = sitter.approval_status;
 
@@ -204,7 +181,7 @@ export const adminSittersService = {
     if (current === "Waiting for verify") {
       const updated = await adminSittersRepository.updateStatus(sitterId, {
         approvalStatus: "Rejected",
-        isListed: false,
+        isListed: sitter.is_listed,
         clearPending: false,
         rejectionReason: note,
       });
@@ -218,7 +195,7 @@ export const adminSittersService = {
     if (current === "Waiting for approve") {
       const updated = await adminSittersRepository.updateStatus(sitterId, {
         approvalStatus: "Rejected",
-        isListed: false,
+        isListed: sitter.is_listed,
         clearPending: false,
         rejectionReason: note,
       });

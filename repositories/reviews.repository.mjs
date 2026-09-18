@@ -120,7 +120,7 @@ export const reviewsRepository = {
          WHERE id = $1
            AND sitter_id = $2
            AND is_approved = false
-         RETURNING rating`,
+         RETURNING id`,
         [reviewId, sitterId]
       );
 
@@ -131,11 +131,18 @@ export const reviewsRepository = {
 
       await client.query(
         `UPDATE sitter_profiles
-         SET review_count = COALESCE(review_count, 0) + 1,
-             rating_avg = ((COALESCE(rating_avg, 0) * COALESCE(review_count, 0)) + $2)
-               / (COALESCE(review_count, 0) + 1)
-         WHERE user_id = $1`,
-        [sitterId, rows[0].rating]
+         SET review_count = stats.review_count,
+             rating_avg = stats.rating_avg
+         FROM (
+           SELECT
+             COUNT(*)::int AS review_count,
+             COALESCE(ROUND(AVG(rating)::numeric, 1), 0) AS rating_avg
+           FROM reviews
+           WHERE sitter_id = $1
+             AND is_approved = true
+         ) AS stats
+         WHERE sitter_profiles.user_id = $1`,
+        [sitterId]
       );
 
       await client.query("COMMIT");
